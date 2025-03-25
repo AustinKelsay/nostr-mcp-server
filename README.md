@@ -2,6 +2,10 @@
 
 A Model Context Protocol (MCP) server that provides Nostr capabilities to LLMs like Claude.
 
+<a href="https://glama.ai/mcp/servers/@AustinKelsay/nostr-mcp-server">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/@AustinKelsay/nostr-mcp-server/badge" alt="Nostr Server MCP server" />
+</a>
+
 https://github.com/user-attachments/assets/1d2d47d0-c61b-44e2-85be-5985d2a81c64
 
 ## Features
@@ -129,4 +133,4 @@ To modify or extend this server:
 
 1. Edit the `index.ts` file in the project root
 2. Run `npm run build` to compile
-3. Restart Claude for Desktop to pick up your changes 
+3. Restart Claude for Desktop to pick up your changes
