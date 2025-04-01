@@ -1,5 +1,7 @@
 # Nostr MCP Server
 
+[![smithery badge](https://smithery.ai/badge/@AustinKelsay/nostr-mcp-server)](https://smithery.ai/server/@AustinKelsay/nostr-mcp-server)
+
 A Model Context Protocol (MCP) server that provides Nostr capabilities to LLMs like Claude.
 
 https://github.com/user-attachments/assets/1d2d47d0-c61b-44e2-85be-5985d2a81c64
@@ -20,6 +22,15 @@ All tools fully support both hex public keys and npub format, with user-friendly
 
 ## Installation
 
+### Installing via Smithery
+
+To install Nostr MCP Server for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@AustinKelsay/nostr-mcp-server):
+
+```bash
+npx -y @smithery/cli install @AustinKelsay/nostr-mcp-server --client claude
+```
+
+### Manual Installation
 ```bash
 # Clone the repository
 git clone https://github.com/austinkelsay/nostr-mcp-server.git
