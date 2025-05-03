@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/austinkelsay-nostr-mcp-server-badge.png)](https://mseep.ai/app/austinkelsay-nostr-mcp-server)
+
 # Nostr MCP Server
 
 A Model Context Protocol (MCP) server that provides Nostr capabilities to LLMs like Claude.
