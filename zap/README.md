@@ -4,16 +4,17 @@ This directory contains tools for working with Nostr Zaps as defined in [NIP-57]
 
 ## Files
 
-- `zap-tools.ts`: Core functionality for processing, validating, and interacting with Nostr zaps
+- `zap-tools.ts`: Core functionality for processing, validating, and interacting with Nostr zaps using **snstr**
 
 ## Features
 
 - **Zap Receipt Validation**: Comprehensive NIP-57 compliant validation of zap receipts
 - **Payment Amount Extraction**: Parse and extract sats amounts from BOLT11 invoices 
 - **Directional Processing**: Determine if zaps were sent, received, or self-zapped
-- **Anonymous Zapping**: Generate anonymous zaps to profiles and events
+- **Anonymous Zapping**: Generate anonymous zaps to profiles and events using snstr's event creation and signing
 - **Lightning Integration**: Full integration with LNURL-pay (LUD-06) and Lightning Address (LUD-16)
 - **Smart Caching**: Efficiently cache processed zaps for better performance
+- **Modern Crypto**: Uses snstr's secure key generation and event signing functions
 
 ## Usage
 
@@ -35,6 +36,7 @@ const validationResult = validateZapReceipt(zapReceipt);
 const formattedZap = formatZapReceipt(zap, contextPubkey);
 
 // Prepare an anonymous zap (returns a lightning invoice)
+// Uses snstr for secure key generation and event signing
 const zapResult = await prepareAnonymousZap(targetNpub, 1000, "Great post!");
 ```
 

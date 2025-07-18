@@ -31,7 +31,9 @@ import {
   formatNote,
   getProfileToolConfig,
   getKind1NotesToolConfig,
-  getLongFormNotesToolConfig
+  getLongFormNotesToolConfig,
+  postAnonymousNoteToolConfig,
+  postAnonymousNote
 } from "./note/note-tools.js";
 
 // Set WebSocket implementation for Node.js
@@ -67,27 +69,19 @@ server.tool(
     
     const relaysToUse = relays || DEFAULT_RELAYS;
     // Create a fresh pool for this request
-    const pool = getFreshPool();
+    const pool = getFreshPool(relaysToUse);
     
     try {
       console.error(`Fetching profile for ${hexPubkey} from ${relaysToUse.join(", ")}`);
       
-      // Create a timeout promise
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error("Timeout")), QUERY_TIMEOUT);
-      });
-      
-      // Create a query promise for profile (kind 0)
-      const profilePromise = pool.get(
+      // Query for profile (kind 0) - snstr handles timeout internally
+      const profile = await pool.get(
         relaysToUse,
         {
           kinds: [KINDS.Metadata],
           authors: [hexPubkey],
         } as NostrFilter
       );
-      
-      // Race the promises
-      const profile = await Promise.race([profilePromise, timeoutPromise]) as NostrEvent;
       
       if (!profile) {
         return {
@@ -123,7 +117,7 @@ server.tool(
       };
     } finally {
       // Clean up any subscriptions and close the pool
-      pool.close(relaysToUse);
+      await pool.close(relaysToUse);
     }
   }
 );
@@ -151,26 +145,21 @@ server.tool(
     
     const relaysToUse = relays || DEFAULT_RELAYS;
     // Create a fresh pool for this request
-    const pool = getFreshPool();
+    const pool = getFreshPool(relaysToUse);
     
     try {
       console.error(`Fetching kind 1 notes for ${hexPubkey} from ${relaysToUse.join(", ")}`);
       
-      // Use the querySync method with a timeout
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error("Timeout")), QUERY_TIMEOUT);
-      });
-      
-      const notesPromise = pool.querySync(
+      // Query for text notes - snstr handles timeout internally
+      const notes = await pool.querySync(
         relaysToUse,
         {
           kinds: [KINDS.Text],
           authors: [hexPubkey],
           limit,
-        } as NostrFilter
+        } as NostrFilter,
+        { timeout: QUERY_TIMEOUT }
       );
-      
-      const notes = await Promise.race([notesPromise, timeoutPromise]) as NostrEvent[];
       
       if (!notes || notes.length === 0) {
         return {
@@ -209,7 +198,7 @@ server.tool(
       };
     } finally {
       // Clean up any subscriptions and close the pool
-      pool.close(relaysToUse);
+      await pool.close(relaysToUse);
     }
   }
 );
@@ -237,27 +226,21 @@ server.tool(
     
     const relaysToUse = relays || DEFAULT_RELAYS;
     // Create a fresh pool for this request
-    const pool = getFreshPool();
+    const pool = getFreshPool(relaysToUse);
     
     try {
       console.error(`Fetching zaps for ${hexPubkey} from ${relaysToUse.join(", ")}`);
       
-      // Use the querySync method with a timeout
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error("Timeout")), QUERY_TIMEOUT);
-      });
-      
-      // Use the proper filter with lowercase 'p' tag which indicates recipient
-      const zapsPromise = pool.querySync(
+      // Query for received zaps - snstr handles timeout internally
+      const zaps = await pool.querySync(
         relaysToUse,
         {
           kinds: [KINDS.ZapReceipt],
           "#p": [hexPubkey], // lowercase 'p' for recipient
           limit: Math.ceil(limit * 1.5), // Fetch a bit more to account for potential invalid zaps
-        } as NostrFilter
+        } as NostrFilter,
+        { timeout: QUERY_TIMEOUT }
       );
-      
-      const zaps = await Promise.race([zapsPromise, timeoutPromise]) as NostrEvent[];
       
       if (!zaps || zaps.length === 0) {
         return {
@@ -359,7 +342,7 @@ server.tool(
       };
     } finally {
       // Clean up any subscriptions and close the pool
-      pool.close(relaysToUse);
+      await pool.close(relaysToUse);
     }
   },
 );
@@ -387,30 +370,25 @@ server.tool(
     
     const relaysToUse = relays || DEFAULT_RELAYS;
     // Create a fresh pool for this request
-    const pool = getFreshPool();
+    const pool = getFreshPool(relaysToUse);
     
     try {
       console.error(`Fetching sent zaps for ${hexPubkey} from ${relaysToUse.join(", ")}`);
       
-      // Use the querySync method with a timeout
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error("Timeout")), QUERY_TIMEOUT);
-      });
-      
       // First try the direct and correct approach: query with uppercase 'P' tag (NIP-57)
       if (debug) console.error("Trying direct query with #P tag...");
-      const directSentZapsPromise = pool.querySync(
-        relaysToUse,
-        {
-          kinds: [KINDS.ZapReceipt],
-          "#P": [hexPubkey], // uppercase 'P' for sender
-          limit: Math.ceil(limit * 1.5), // Fetch a bit more to account for potential invalid zaps
-        } as NostrFilter
-      );
       
       let potentialSentZaps: NostrEvent[] = [];
       try {
-        potentialSentZaps = await Promise.race([directSentZapsPromise, timeoutPromise]) as NostrEvent[];
+        potentialSentZaps = await pool.querySync(
+          relaysToUse,
+          {
+            kinds: [KINDS.ZapReceipt],
+            "#P": [hexPubkey], // uppercase 'P' for sender
+            limit: Math.ceil(limit * 1.5), // Fetch a bit more to account for potential invalid zaps
+          } as NostrFilter,
+          { timeout: QUERY_TIMEOUT }
+        );
         if (debug) console.error(`Direct #P tag query returned ${potentialSentZaps.length} results`);
       } catch (e: unknown) {
         if (debug) console.error(`Direct #P tag query failed: ${e instanceof Error ? e.message : String(e)}`);
@@ -421,15 +399,14 @@ server.tool(
         if (debug) console.error("Direct query yielded insufficient results, trying fallback approach...");
         
         // Try a fallback approach - fetch a larger set of zap receipts
-        const zapsPromise = pool.querySync(
+        const additionalZaps = await pool.querySync(
           relaysToUse,
           {
             kinds: [KINDS.ZapReceipt],
             limit: Math.max(limit * 10, 100), // Get a larger sample
-          } as NostrFilter
+          } as NostrFilter,
+          { timeout: QUERY_TIMEOUT }
         );
-        
-        const additionalZaps = await Promise.race([zapsPromise, timeoutPromise]) as NostrEvent[];
         
         if (debug) {
           console.error(`Retrieved ${additionalZaps?.length || 0} additional zap receipts to analyze`);
@@ -556,7 +533,7 @@ server.tool(
       };
     } finally {
       // Clean up any subscriptions and close the pool
-      pool.close(relaysToUse);
+      await pool.close(relaysToUse);
     }
   },
 );
@@ -584,15 +561,12 @@ server.tool(
     
     const relaysToUse = relays || DEFAULT_RELAYS;
     // Create a fresh pool for this request
-    const pool = getFreshPool();
+    const pool = getFreshPool(relaysToUse);
     
     try {
       console.error(`Fetching all zaps for ${hexPubkey} from ${relaysToUse.join(", ")}`);
       
       // Use a more efficient approach: fetch all potentially relevant zaps in parallel
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error("Timeout")), QUERY_TIMEOUT);
-      });
       
       // Prepare all required queries in parallel to reduce total time
       const fetchPromises = [
@@ -603,7 +577,8 @@ server.tool(
           kinds: [KINDS.ZapReceipt],
           "#p": [hexPubkey],
             limit: Math.ceil(limit * 1.5),
-        } as NostrFilter
+        } as NostrFilter,
+        { timeout: QUERY_TIMEOUT }
         ),
         
         // 2. Fetch sent zaps (uppercase 'P' tag)
@@ -613,7 +588,8 @@ server.tool(
           kinds: [KINDS.ZapReceipt],
           "#P": [hexPubkey],
             limit: Math.ceil(limit * 1.5),
-        } as NostrFilter
+        } as NostrFilter,
+        { timeout: QUERY_TIMEOUT }
         )
       ];
       
@@ -625,7 +601,8 @@ server.tool(
           {
             kinds: [KINDS.ZapReceipt],
               limit: Math.max(limit * 5, 50),
-          } as NostrFilter
+          } as NostrFilter,
+          { timeout: QUERY_TIMEOUT }
           )
         );
       }
@@ -779,7 +756,7 @@ server.tool(
       };
     } finally {
       // Clean up any subscriptions and close the pool
-      pool.close(relaysToUse);
+      await pool.close(relaysToUse);
     }
   },
 );
@@ -807,26 +784,21 @@ server.tool(
     
     const relaysToUse = relays || DEFAULT_RELAYS;
     // Create a fresh pool for this request
-    const pool = getFreshPool();
+    const pool = getFreshPool(relaysToUse);
     
     try {
       console.error(`Fetching long-form notes for ${hexPubkey} from ${relaysToUse.join(", ")}`);
       
-      // Use the querySync method with a timeout
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error("Timeout")), QUERY_TIMEOUT);
-      });
-      
-      const notesPromise = pool.querySync(
+      // Query for long-form notes - snstr handles timeout internally
+      const notes = await pool.querySync(
         relaysToUse,
         {
           kinds: [30023], // NIP-23 long-form content
           authors: [hexPubkey],
           limit,
-        } as NostrFilter
+        } as NostrFilter,
+        { timeout: QUERY_TIMEOUT }
       );
-      
-      const notes = await Promise.race([notesPromise, timeoutPromise]) as NostrEvent[];
       
       if (!notes || notes.length === 0) {
         return {
@@ -888,7 +860,7 @@ server.tool(
       };
     } finally {
       // Clean up any subscriptions and close the pool
-      pool.close(relaysToUse);
+      await pool.close(relaysToUse);
     }
   }
 );

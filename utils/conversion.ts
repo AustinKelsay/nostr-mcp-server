@@ -1,4 +1,4 @@
-import * as nip19 from "nostr-tools/nip19";
+import { decode, encodePublicKey } from "snstr";
 
 /**
  * Convert an npub or hex string to hex format
@@ -18,9 +18,9 @@ export function npubToHex(pubkey: string): string | null {
     // If npub
     if (pubkey.startsWith('npub1')) {
       try {
-        const { type, data } = nip19.decode(pubkey);
-        if (type === 'npub') {
-          return data as string;
+        const result = decode(pubkey as `${string}1${string}`);
+        if (result.type === 'npub') {
+          return result.data;
         }
       } catch (e) {
         console.error('Error decoding npub:', e);
@@ -52,7 +52,7 @@ export function hexToNpub(hex: string): string | null {
     }
     
     // Convert to npub
-    return nip19.npubEncode(hex.toLowerCase());
+    return encodePublicKey(hex.toLowerCase());
   } catch (error) {
     console.error('Error in hexToNpub:', error);
     return null;

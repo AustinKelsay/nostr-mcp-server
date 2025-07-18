@@ -1,6 +1,6 @@
 # Nostr Implementation Possibilities (NIPs) Tools
 
-This directory contains tools for working with Nostr Implementation Possibilities (NIPs), which are the specifications that define the Nostr protocol.
+This directory contains tools for working with Nostr Implementation Possibilities (NIPs), which are the specifications that define the Nostr protocol. These tools complement the **snstr**-based implementation in the main server.
 
 ## Files
 

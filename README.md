@@ -16,6 +16,7 @@ This server implements several tools for interacting with the Nostr network:
 6. `getAllZaps`: Fetches both sent and received zaps for a user, clearly labeled with direction and totals
 7. `searchNips`: Search through Nostr Implementation Possibilities (NIPs) with relevance scoring
 8. `sendAnonymousZap`: Prepare an anonymous zap to a profile or event, generating a lightning invoice for payment
+9. `postAnonymousNote`: Post an anonymous note using a randomly generated one-time keypair
 
 All tools fully support both hex public keys and npub format, with user-friendly display of Nostr identifiers.
 
@@ -118,8 +119,37 @@ Once configured, you can ask Claude to use the Nostr tools by making requests li
 - "Show me NIP-23 with full content"
 - "Send an anonymous zap of 100 sats to npub1qny3tkh0acurzla8x3zy4nhrjz5zd8ne6dvrjehx9n9hr3lnj08qwuzwc8"
 - "Send 1000 sats to note1abcdef... with a comment saying 'Great post!'"
+- "Post an anonymous note saying 'Hello Nostr world!'"
+- "Create an anonymous post with tags #bitcoin and #nostr"
 
 The server automatically handles conversion between npub and hex formats, so you can use either format in your queries. Results are displayed with user-friendly npub identifiers.
+
+## Anonymous Notes
+
+The `postAnonymousNote` tool allows users to post notes to the Nostr network without revealing their identity. Key points about anonymous notes:
+
+- The note will be published using a random one-time keypair generated just for this post
+- The private key is never stored or saved anywhere - it's used only for signing the note
+- You receive the public key and note ID in the response if you want to reference them
+- You can optionally specify custom tags to include with your note
+- By default, the note is published to several popular relays to ensure good propagation
+
+Examples:
+```
+"Post an anonymous note saying 'Just trying out the anonymous posting feature!'"
+"Create an anonymous note with the content 'Testing the Nostr anonymity features' and tags #test #anonymous"
+"Post anonymously to Nostr: 'I can share thoughts without linking to my identity'"
+```
+
+For more control, you can specify custom relays:
+```
+"Post an anonymous note to relay wss://relay.damus.io saying 'Hello Nostr world!'"
+```
+
+This feature is useful for:
+- Testing posts without affecting your main identity
+- Sharing information anonymously
+- Creating temporary or throwaway content
 
 ## Advanced Usage
 
@@ -154,6 +184,7 @@ For NIP searches, you can control the number of results and include full content
 
 ## Implementation Details
 
+- Built with **snstr** - a lightweight, modern TypeScript library for Nostr protocol implementation
 - Native support for npub format using NIP-19 encoding/decoding
 - NIP-57 compliant zap receipt detection with direction-awareness (sent/received/self)
 - Advanced bolt11 invoice parsing with payment amount extraction
@@ -163,6 +194,7 @@ For NIP searches, you can control the number of results and include full content
 - Anonymous zap support with lightning invoice generation
 - Support for zapping profiles, events (note IDs), and replaceable events (naddr)
 - Each tool call creates a fresh connection to the relays, ensuring reliable data retrieval
+- Comprehensive test suite with clean execution and proper resource cleanup
 
 ## Anonymous Zaps
 
@@ -195,8 +227,8 @@ The server uses the following relays by default:
 - wss://relay.nostr.band
 - wss://relay.primal.net
 - wss://nos.lol
-- wss://relay.current.fyi
-- wss://nostr.bitcoiner.social
+- wss://purplerelay.com
+- wss://nostr.land
 
 ## Development
 
@@ -254,7 +286,12 @@ The test suite includes:
   - Closing subscriptions
   - Verifying that events with invalid signatures are rejected
 
-All integration tests use our `ephemeral-relay.ts` implementation—a fully functional in-memory Nostr relay that supports the Nostr protocol, allowing for real cryptographic event signing and verification without requiring external network connections. This provides a robust way to test the full Nostr workflow in an isolated environment.
+### Test Infrastructure
+- All integration tests use our `ephemeral-relay.ts` implementation—a fully functional in-memory Nostr relay
+- Tests use **snstr** for cryptographic event signing and verification
+- Clean test execution with proper resource cleanup and no console warnings
+- Automated WebSocket connection management with timeout handling
+- Isolated test environment requiring no external network connections
 
 For more details about the test suite, see [__tests__/README.md](./__tests__/README.md).
 

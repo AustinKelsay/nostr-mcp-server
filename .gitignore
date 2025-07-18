@@ -2,6 +2,7 @@ build/
 node_modules/
 prompts/
 .cursor/
+_docs/
 
 # OS specific files
 .DS_Store

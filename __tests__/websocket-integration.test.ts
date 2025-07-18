@@ -73,16 +73,33 @@ describe('WebSocket Nostr Integration Tests', () => {
     await connectPromise;
   });
   
-  afterEach(() => {
+  afterEach(async () => {
     // Close WebSocket connection after each test
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.close();
+    if (ws) {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.close();
+        // Wait for close to complete
+        await new Promise(resolve => {
+          ws.on('close', resolve);
+          setTimeout(resolve, 100); // Fallback timeout
+        });
+      }
+      ws.removeAllListeners();
     }
   });
   
   afterAll(async () => {
+    // Ensure all WebSocket connections are closed
+    if (ws && ws.readyState !== WebSocket.CLOSED) {
+      ws.close();
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
     // Shutdown relay
     await relay.close();
+    
+    // Give time for all async operations to complete
+    await new Promise(resolve => setTimeout(resolve, 200));
   });
   
   // Helper function to send a message and wait for response

@@ -1,8 +1,7 @@
 import { z } from "zod";
 import { decode } from "light-bolt11-decoder";
-import * as nip19 from "nostr-tools/nip19";
+import { decode as nip19decode, generateKeypair, createEvent, getEventHash, signEvent } from "snstr";
 import fetch from "node-fetch";
-import { generateSecretKey, getPublicKey, finalizeEvent } from "nostr-tools/pure";
 import {
   NostrEvent,
   NostrFilter,
@@ -559,7 +558,7 @@ export async function decodeEventId(id: string): Promise<{ type: string, eventId
     // Try to decode as a bech32 entity
     if (id.startsWith('note1') || id.startsWith('nevent1') || id.startsWith('naddr1')) {
       try {
-        const decoded = nip19.decode(id);
+        const decoded = nip19decode(id as `${string}1${string}`);
         
         if (decoded.type === 'note') {
           return {
@@ -743,7 +742,7 @@ export async function prepareAnonymousZap(
     }
     
     // Create a fresh pool for this request
-    const pool = getFreshPool();
+    const pool = getFreshPool(relays);
     
     try {
       // Find the user's metadata to get their LNURL
@@ -1006,19 +1005,26 @@ export async function prepareAnonymousZap(
       }
       
       // Create a proper one-time keypair for anonymous zapping
-      const anonymousSecretKey = generateSecretKey(); // This generates a proper 32-byte private key
-      const anonymousPubkeyHex = getPublicKey(anonymousSecretKey); // This computes the corresponding public key
+      const anonymousKeys = await generateKeypair();
+      const anonymousPubkeyHex = anonymousKeys.publicKey;
 
       // Create the zap request event template
-      const zapRequestTemplate = {
+      const zapRequestTemplate = createEvent({
         kind: 9734,
-        created_at: Math.floor(Date.now() / 1000),
         content: comment,
-        tags: zapRequestTags,
+        tags: zapRequestTags
+      }, anonymousKeys.publicKey);
+      
+      // Get event hash and sign it
+      const zapEventId = await getEventHash(zapRequestTemplate);
+      const signature = await signEvent(zapEventId, anonymousKeys.privateKey);
+      
+      // Create complete signed event
+      const signedZapRequest = {
+        ...zapRequestTemplate,
+        id: zapEventId,
+        sig: signature
       };
-
-      // Properly finalize the event (calculates ID and signs it) using nostr-tools
-      const signedZapRequest = finalizeEvent(zapRequestTemplate, anonymousSecretKey);
 
       // Create different formatted versions of the zap request for compatibility
       const completeEventParam = encodeURIComponent(JSON.stringify(signedZapRequest));
@@ -1151,7 +1157,7 @@ export async function prepareAnonymousZap(
       };
     } finally {
       // Clean up any subscriptions and close the pool
-      pool.close(relays);
+      await pool.close(relays);
     }
   } catch (error) {
     return {
