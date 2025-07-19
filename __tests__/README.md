@@ -15,6 +15,9 @@ The test suite uses Jest to test both the core functionality and protocol integr
 ### Unit Tests
 - `basic.test.ts`: Simple tests for profile formatting and zap receipt processing
 - `profile-notes-simple.test.ts`: Tests for profile and note data structures
+- `profile-tools.test.ts`: Tests for keypair generation, profile creation, and identity management
+- `note-creation.test.ts`: Tests for note creation, signing, and publishing workflows
+- `profile-postnote.test.ts`: Tests for authenticated note posting with existing private keys
 - `zap-tools-simple.test.ts`: Tests for zap processing and anonymous zap preparation
 - `mocks.ts`: Contains mock data for unit tests
 
@@ -68,15 +71,31 @@ Integration tests use an in-memory ephemeral relay that implements the Nostr pro
 
 The test suite provides coverage for:
 
+### Identity & Profile Management
+- Keypair generation in multiple formats (hex, npub/nsec)
+- Profile creation and updates with comprehensive metadata
+- Private key format handling and normalization
+
+### Note Operations
+- Note creation, signing, and publishing workflows
+- Authenticated note posting with existing private keys
+- Anonymous note posting with generated keypairs
+- Tag support and content validation
+
+### Reading & Querying
 - Profile retrieval and formatting
 - Note retrieval and formatting
-- Anonymous note posting with snstr key generation
+- Multi-relay querying and data aggregation
+
+### Zap Operations
 - Zap receipt processing and validation
 - Anonymous zap preparation with snstr event signing
+
+### Protocol & Infrastructure
 - Full Nostr protocol event cycles
 - WebSocket communication
-- Event filtering
-- Subscription management
+- Event filtering and subscription management
+- Cryptographic signature validation
 - Resource cleanup and process management
 
 ## Adding Tests

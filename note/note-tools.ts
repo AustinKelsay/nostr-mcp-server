@@ -3,8 +3,9 @@ import {
   NostrEvent,
   DEFAULT_RELAYS
 } from "../utils/index.js";
-import { generateKeypair, createEvent, getEventHash, signEvent } from "snstr";
+import { generateKeypair, createEvent, getEventHash, signEvent, decode as nip19decode } from "snstr";
 import { getFreshPool } from "../utils/index.js";
+import { schnorr } from '@noble/curves/secp256k1';
 
 // Schema for getProfile tool
 export const getProfileToolConfig = {
@@ -31,6 +32,39 @@ export const postAnonymousNoteToolConfig = {
   content: z.string().describe("Content of the note to post"),
   relays: z.array(z.string()).optional().describe("Optional list of relays to publish to"),
   tags: z.array(z.array(z.string())).optional().describe("Optional tags to include with the note"),
+};
+
+// Schema for createNote tool
+export const createNoteToolConfig = {
+  privateKey: z.string().describe("Private key to sign the note with (hex format or nsec format)"),
+  content: z.string().describe("Content of the note to create"),
+  tags: z.array(z.array(z.string())).optional().describe("Optional tags to include with the note"),
+};
+
+// Schema for signNote tool
+export const signNoteToolConfig = {
+  privateKey: z.string().describe("Private key to sign the note with (hex format or nsec format)"),
+  noteEvent: z.object({
+    kind: z.number().describe("Event kind (should be 1 for text notes)"),
+    content: z.string().describe("Content of the note"),
+    tags: z.array(z.array(z.string())).describe("Tags array"),
+    created_at: z.number().describe("Creation timestamp"),
+    pubkey: z.string().describe("Public key of the author")
+  }).describe("Unsigned note event to sign"),
+};
+
+// Schema for publishNote tool  
+export const publishNoteToolConfig = {
+  signedNote: z.object({
+    id: z.string().describe("Event ID"),
+    pubkey: z.string().describe("Public key of the author"),
+    created_at: z.number().describe("Creation timestamp"),
+    kind: z.number().describe("Event kind"),
+    tags: z.array(z.array(z.string())).describe("Tags array"),
+    content: z.string().describe("Content of the note"),
+    sig: z.string().describe("Event signature")
+  }).describe("Signed note event to publish"),
+  relays: z.array(z.string()).optional().describe("Optional list of relays to publish to"),
 };
 
 // Helper function to format profile data
@@ -151,4 +185,180 @@ export async function postAnonymousNote(
       message: `Fatal error: ${error instanceof Error ? error.message : "Unknown error"}`,
     };
   }
-} 
+}
+
+// Helper function to convert private key to hex if nsec format
+function normalizePrivateKey(privateKey: string): string {
+  if (privateKey.startsWith('nsec')) {
+    const decoded = nip19decode(privateKey as `${string}1${string}`);
+    if (decoded.type !== 'nsec') {
+      throw new Error('Invalid nsec format');
+    }
+    return decoded.data;
+  }
+  return privateKey;
+}
+
+// Helper function to derive public key from private key
+function getPublicKeyFromPrivate(privateKey: string): string {
+  return Buffer.from(schnorr.getPublicKey(privateKey)).toString('hex');
+}
+
+/**
+ * Create a new kind 1 note event (unsigned)
+ */
+export async function createNote(
+  privateKey: string,
+  content: string,
+  tags: string[][] = []
+): Promise<{ success: boolean, message: string, noteEvent?: any, publicKey?: string }> {
+  try {
+    // Normalize private key
+    const normalizedPrivateKey = normalizePrivateKey(privateKey);
+    
+    // Derive public key from private key
+    const publicKey = getPublicKeyFromPrivate(normalizedPrivateKey);
+    
+    // Create the note event template
+    const noteTemplate = createEvent({
+      kind: 1, // kind 1 is a text note
+      content,
+      tags
+    }, publicKey);
+    
+    return {
+      success: true,
+      message: 'Note event created successfully (unsigned)',
+      noteEvent: noteTemplate,
+      publicKey: publicKey,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: `Error creating note: ${error instanceof Error ? error.message : "Unknown error"}`,
+    };
+  }
+}
+
+/**
+ * Sign a note event
+ */
+export async function signNote(
+  privateKey: string,
+  noteEvent: {
+    kind: number;
+    content: string;
+    tags: string[][];
+    created_at: number;
+    pubkey: string;
+  }
+): Promise<{ success: boolean, message: string, signedNote?: any }> {
+  try {
+    // Normalize private key
+    const normalizedPrivateKey = normalizePrivateKey(privateKey);
+    
+    // Verify the public key matches the private key
+    const derivedPubkey = getPublicKeyFromPrivate(normalizedPrivateKey);
+    if (derivedPubkey !== noteEvent.pubkey) {
+      return {
+        success: false,
+        message: 'Private key does not match the public key in the note event',
+      };
+    }
+    
+    // Get event hash and sign it
+    const eventId = await getEventHash(noteEvent);
+    const signature = await signEvent(eventId, normalizedPrivateKey);
+    
+    // Create complete signed event
+    const signedNote = {
+      ...noteEvent,
+      id: eventId,
+      sig: signature
+    };
+    
+    return {
+      success: true,
+      message: 'Note signed successfully',
+      signedNote: signedNote,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: `Error signing note: ${error instanceof Error ? error.message : "Unknown error"}`,
+    };
+  }
+}
+
+/**
+ * Publish a signed note to relays
+ */
+export async function publishNote(
+  signedNote: {
+    id: string;
+    pubkey: string;
+    created_at: number;
+    kind: number;
+    tags: string[][];
+    content: string;
+    sig: string;
+  },
+  relays: string[] = DEFAULT_RELAYS
+): Promise<{ success: boolean, message: string, noteId?: string }> {
+  try {
+    console.error(`Preparing to publish note to ${relays.join(", ")}`);
+    
+    // If no relays specified, just return success with event validation
+    if (relays.length === 0) {
+      return {
+        success: true,
+        message: 'Note is valid and ready to publish (no relays specified)',
+        noteId: signedNote.id,
+      };
+    }
+    
+    // Create a fresh pool for this request
+    const pool = getFreshPool(relays);
+    
+    try {
+      // Publish to relays
+      const pubPromises = relays.map(relay => 
+        pool.publish([relay], signedNote)
+      );
+      
+      // Wait for all publish attempts to complete or timeout
+      const results = await Promise.allSettled(pubPromises);
+      
+      // Check if at least one relay accepted the note
+      const successCount = results.filter(r => r.status === 'fulfilled').length;
+      
+      if (successCount === 0) {
+        return {
+          success: false,
+          message: 'Failed to publish note to any relay',
+        };
+      }
+      
+      return {
+        success: true,
+        message: `Note published to ${successCount}/${relays.length} relays`,
+        noteId: signedNote.id,
+      };
+    } catch (error) {
+      console.error("Error publishing note:", error);
+      
+      return {
+        success: false,
+        message: `Error publishing note: ${error instanceof Error ? error.message : "Unknown error"}`,
+      };
+    } finally {
+      // Clean up any subscriptions and close the pool
+      await pool.close(relays);
+    }
+  } catch (error) {
+    return {
+      success: false,
+      message: `Fatal error: ${error instanceof Error ? error.message : "Unknown error"}`,
+    };
+  }
+}

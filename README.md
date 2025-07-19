@@ -8,6 +8,7 @@ https://github.com/user-attachments/assets/1d2d47d0-c61b-44e2-85be-5985d2a81c64
 
 This server implements several tools for interacting with the Nostr network:
 
+### Reading & Querying Tools
 1. `getProfile`: Fetches a user's profile information by public key
 2. `getKind1Notes`: Fetches text notes (kind 1) authored by a user
 3. `getLongFormNotes`: Fetches long-form content (kind 30023) authored by a user
@@ -15,8 +16,21 @@ This server implements several tools for interacting with the Nostr network:
 5. `getSentZaps`: Fetches zaps sent by a user, including detailed payment information
 6. `getAllZaps`: Fetches both sent and received zaps for a user, clearly labeled with direction and totals
 7. `searchNips`: Search through Nostr Implementation Possibilities (NIPs) with relevance scoring
-8. `sendAnonymousZap`: Prepare an anonymous zap to a profile or event, generating a lightning invoice for payment
-9. `postAnonymousNote`: Post an anonymous note using a randomly generated one-time keypair
+
+### Identity & Profile Management Tools
+8. `createKeypair`: Generate new Nostr keypairs in hex and/or npub/nsec format
+9. `createProfile`: Create a new Nostr profile (kind 0 event) with metadata
+10. `updateProfile`: Update an existing Nostr profile with new metadata
+
+### Note Creation & Publishing Tools  
+11. `createNote`: Create unsigned kind 1 note events with specified content and tags
+12. `signNote`: Sign note events with a private key, generating cryptographically valid signatures
+13. `publishNote`: Publish signed notes to specified Nostr relays
+14. `postNote`: All-in-one authenticated note posting using an existing private key (nsec/hex)
+
+### Anonymous Tools
+15. `sendAnonymousZap`: Prepare an anonymous zap to a profile or event, generating a lightning invoice for payment
+16. `postAnonymousNote`: Post an anonymous note using a randomly generated one-time keypair
 
 All tools fully support both hex public keys and npub format, with user-friendly display of Nostr identifiers.
 
@@ -108,6 +122,7 @@ npm run build
 
 Once configured, you can ask Claude to use the Nostr tools by making requests like:
 
+### Reading & Querying
 - "Show me the profile information for npub1qny3tkh0acurzla8x3zy4nhrjz5zd8ne6dvrjehx9n9hr3lnj08qwuzwc8"
 - "What are the recent posts from npub1qny3tkh0acurzla8x3zy4nhrjz5zd8ne6dvrjehx9n9hr3lnj08qwuzwc8?"
 - "Show me the long-form articles from npub1qny3tkh0acurzla8x3zy4nhrjz5zd8ne6dvrjehx9n9hr3lnj08qwuzwc8"
@@ -117,6 +132,20 @@ Once configured, you can ask Claude to use the Nostr tools by making requests li
 - "Search for NIPs about zaps"
 - "What NIPs are related to long-form content?"
 - "Show me NIP-23 with full content"
+
+### Identity & Profile Management
+- "Generate a new Nostr keypair for me"
+- "Create a keypair in both hex and npub format"
+- "Create a new profile with name 'Alice' and about 'Bitcoiner and developer'"
+- "Update my profile with picture 'https://example.com/avatar.jpg' and website 'https://alice.dev'"
+
+### Note Creation & Publishing
+- "Create a note event with content 'Hello Nostr!' and tags #intro #nostr"
+- "Sign this note event with my private key nsec1xyz..."
+- "Publish this signed note to wss://relay.damus.io and wss://nos.lol"
+- "Post a note saying 'GM Nostr! ☀️' using my private key nsec1xyz..."
+
+### Anonymous Operations
 - "Send an anonymous zap of 100 sats to npub1qny3tkh0acurzla8x3zy4nhrjz5zd8ne6dvrjehx9n9hr3lnj08qwuzwc8"
 - "Send 1000 sats to note1abcdef... with a comment saying 'Great post!'"
 - "Post an anonymous note saying 'Hello Nostr world!'"
@@ -150,6 +179,64 @@ This feature is useful for:
 - Testing posts without affecting your main identity
 - Sharing information anonymously
 - Creating temporary or throwaway content
+
+## Identity & Profile Management
+
+The server provides comprehensive tools for managing Nostr identities and profiles:
+
+### Keypair Generation
+The `createKeypair` tool generates cryptographically secure Nostr keypairs using the secp256k1 curve. You can choose to receive keys in hex format, npub/nsec format, or both:
+
+```
+"Generate a new Nostr keypair in both hex and npub format"
+"Create a keypair with only hex keys"
+"Generate keys in npub format only"
+```
+
+### Profile Creation & Updates
+Create and manage Nostr profiles (kind 0 events) with full metadata support:
+
+- **Names & Bio**: Set display names, usernames, and about text
+- **Media**: Add profile pictures and banners
+- **Identity**: Configure NIP-05 identifiers for verification
+- **Lightning**: Set up Lightning addresses (LUD-16) and LNURL (LUD-06) for payments
+- **Web Presence**: Add personal websites and social links
+
+Examples:
+```
+"Create a profile with name 'Alice', about 'Bitcoin developer', and picture 'https://example.com/alice.jpg'"
+"Update my profile to add website 'https://alice.dev' and Lightning address 'alice@getalby.com'"
+```
+
+## Authenticated Note Posting
+
+### Individual Note Operations
+For advanced users who need granular control over the note creation process:
+
+- **`createNote`**: Creates unsigned note events with your content and tags
+- **`signNote`**: Signs note events with your private key, generating cryptographically valid signatures
+- **`publishNote`**: Publishes signed notes to your chosen relays
+
+This modular approach allows for:
+- Offline note creation and later signing
+- Batch operations across multiple notes
+- Integration with external signing workflows
+- Publishing to different relay sets
+
+### All-in-One Posting
+The `postNote` tool provides a convenient single-command approach for authenticated posting:
+
+```
+"Post a note saying 'GM Nostr! ☀️' using my private key nsec1xyz..."
+"Create a post with content 'Just shipped a new feature!' and tags #development #nostr"
+"Post 'Beautiful sunset today 🌅' with tags #photography #nature to relay wss://relay.damus.io"
+```
+
+Key features:
+- **Authenticated Identity**: Posts appear under your established Nostr identity
+- **Format Flexibility**: Accepts both hex and nsec private key formats
+- **Tag Support**: Add hashtags, mentions, and custom metadata
+- **Relay Control**: Publish to specific relays or use defaults
 
 ## Advanced Usage
 
@@ -236,7 +323,8 @@ To modify or extend this server:
 
 1. Edit the relevant file:
    - `index.ts`: Main server and tool registration
-   - `note/note-tools.ts`: Profile and notes functionality ([Documentation](./note/README.md))
+   - `profile/profile-tools.ts`: Identity management, keypair generation, profile creation ([Documentation](./profile/README.md))
+   - `note/note-tools.ts`: Note creation, signing, publishing, and reading functionality ([Documentation](./note/README.md))
    - `zap/zap-tools.ts`: Zap-related functionality ([Documentation](./zap/README.md))
    - `nips/nips-tools.ts`: Functions for searching NIPs ([Documentation](./nips/README.md))
    - `utils/`: Shared utility functions
@@ -270,6 +358,9 @@ The test suite includes:
 ### Unit Tests
 - `basic.test.ts` - Tests simple profile formatting and zap receipt processing
 - `profile-notes-simple.test.ts` - Tests profile and note data structures
+- `profile-tools.test.ts` - Tests keypair generation, profile creation, and identity management
+- `note-creation.test.ts` - Tests note creation, signing, and publishing workflows
+- `profile-postnote.test.ts` - Tests authenticated note posting with existing private keys
 - `zap-tools-simple.test.ts` - Tests zap processing and anonymous zap preparation
 
 ### Integration Tests
@@ -300,9 +391,10 @@ For more details about the test suite, see [__tests__/README.md](./__tests__/REA
 The codebase is organized into modules:
 - Core server setup in `index.ts`
 - Specialized functionality in dedicated directories:
-  - [`nips/`](./nips/README.md): NIPs search and caching functionality
-  - [`note/`](./note/README.md): Profile and notes functionality
+  - [`profile/`](./profile/README.md): Identity management, keypair generation, and profile creation
+  - [`note/`](./note/README.md): Note creation, signing, publishing, and reading functionality
   - [`zap/`](./zap/README.md): Zap handling and anonymous zapping
+  - [`nips/`](./nips/README.md): NIPs search and caching functionality
 - Common utilities in the `utils/` directory
 
 This modular structure makes the codebase more maintainable, reduces duplication, and enables easier feature extensions. For detailed information about each module's features and implementation, see their respective documentation.

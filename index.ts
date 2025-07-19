@@ -33,8 +33,24 @@ import {
   getKind1NotesToolConfig,
   getLongFormNotesToolConfig,
   postAnonymousNoteToolConfig,
-  postAnonymousNote
+  postAnonymousNote,
+  createNote,
+  signNote,
+  publishNote,
+  createNoteToolConfig,
+  signNoteToolConfig,
+  publishNoteToolConfig
 } from "./note/note-tools.js";
+import {
+  createKeypair,
+  createProfile,
+  updateProfile,
+  postNote,
+  createKeypairToolConfig,
+  createProfileToolConfig,
+  updateProfileToolConfig,
+  postNoteToolConfig
+} from "./profile/profile-tools.js";
 
 // Set WebSocket implementation for Node.js
 (globalThis as any).WebSocket = WebSocket;
@@ -966,6 +982,412 @@ server.tool(
           {
             type: "text",
             text: `Error preparing anonymous zap: ${errorMessage}`,
+          },
+        ],
+      };
+    }
+  },
+);
+
+// Register profile management tools
+server.tool(
+  "createKeypair",
+  "Generate a new Nostr keypair",
+  createKeypairToolConfig,
+  async ({ format }) => {
+    try {
+      const result = await createKeypair(format);
+      
+      let response = "New Nostr keypair generated:\n\n";
+      
+      if (result.publicKey) {
+        response += `Public Key (hex): ${result.publicKey}\n`;
+      }
+      if (result.privateKey) {
+        response += `Private Key (hex): ${result.privateKey}\n`;
+      }
+      if (result.npub) {
+        response += `Public Key (npub): ${result.npub}\n`;
+      }
+      if (result.nsec) {
+        response += `Private Key (nsec): ${result.nsec}\n`;
+      }
+      
+      response += "\n⚠️ IMPORTANT: Store your private key securely! This is the only copy and cannot be recovered if lost.";
+      
+      return {
+        content: [
+          {
+            type: "text",
+            text: response,
+          },
+        ],
+      };
+    } catch (error) {
+      console.error("Error in createKeypair tool:", error);
+      
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error generating keypair: ${error instanceof Error ? error.message : "Unknown error"}`,
+          },
+        ],
+      };
+    }
+  },
+);
+
+server.tool(
+  "createProfile",
+  "Create a new Nostr profile (kind 0 event)",
+  createProfileToolConfig,
+  async ({ privateKey, name, about, picture, nip05, lud16, lud06, website, relays }) => {
+    try {
+      const profileData = {
+        name,
+        about,
+        picture,
+        nip05,
+        lud16,
+        lud06,
+        website
+      };
+      
+      const result = await createProfile(privateKey, profileData, relays);
+      
+      if (result.success) {
+        let response = `Profile created successfully!\n\n`;
+        response += `${result.message}\n`;
+        if (result.eventId) {
+          response += `Event ID: ${result.eventId}\n`;
+        }
+        if (result.publicKey) {
+          response += `Public Key: ${formatPubkey(result.publicKey)}\n`;
+        }
+        
+        // Show the profile data that was set
+        response += "\nProfile data:\n";
+        if (name) response += `Name: ${name}\n`;
+        if (about) response += `About: ${about}\n`;
+        if (picture) response += `Picture: ${picture}\n`;
+        if (nip05) response += `NIP-05: ${nip05}\n`;
+        if (lud16) response += `Lightning Address: ${lud16}\n`;
+        if (lud06) response += `LNURL: ${lud06}\n`;
+        if (website) response += `Website: ${website}\n`;
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: response,
+            },
+          ],
+        };
+      } else {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Failed to create profile: ${result.message}`,
+            },
+          ],
+        };
+      }
+    } catch (error) {
+      console.error("Error in createProfile tool:", error);
+      
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error creating profile: ${error instanceof Error ? error.message : "Unknown error"}`,
+          },
+        ],
+      };
+    }
+  },
+);
+
+server.tool(
+  "updateProfile",
+  "Update an existing Nostr profile (kind 0 event)",
+  updateProfileToolConfig,
+  async ({ privateKey, name, about, picture, nip05, lud16, lud06, website, relays }) => {
+    try {
+      const profileData = {
+        name,
+        about,
+        picture,
+        nip05,
+        lud16,
+        lud06,
+        website
+      };
+      
+      const result = await updateProfile(privateKey, profileData, relays);
+      
+      if (result.success) {
+        let response = `Profile updated successfully!\n\n`;
+        response += `${result.message}\n`;
+        if (result.eventId) {
+          response += `Event ID: ${result.eventId}\n`;
+        }
+        if (result.publicKey) {
+          response += `Public Key: ${formatPubkey(result.publicKey)}\n`;
+        }
+        
+        // Show the profile data that was updated
+        response += "\nUpdated profile data:\n";
+        if (name) response += `Name: ${name}\n`;
+        if (about) response += `About: ${about}\n`;
+        if (picture) response += `Picture: ${picture}\n`;
+        if (nip05) response += `NIP-05: ${nip05}\n`;
+        if (lud16) response += `Lightning Address: ${lud16}\n`;
+        if (lud06) response += `LNURL: ${lud06}\n`;
+        if (website) response += `Website: ${website}\n`;
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: response,
+            },
+          ],
+        };
+      } else {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Failed to update profile: ${result.message}`,
+            },
+          ],
+        };
+      }
+    } catch (error) {
+      console.error("Error in updateProfile tool:", error);
+      
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error updating profile: ${error instanceof Error ? error.message : "Unknown error"}`,
+          },
+        ],
+      };
+    }
+  },
+);
+
+server.tool(
+  "postNote",
+  "Post a note using an existing private key (authenticated posting)",
+  postNoteToolConfig,
+  async ({ privateKey, content, tags, relays }) => {
+    try {
+      const result = await postNote(privateKey, content, tags, relays);
+      
+      if (result.success) {
+        let response = `Note posted successfully!\n\n`;
+        response += `${result.message}\n`;
+        if (result.noteId) {
+          response += `Note ID: ${result.noteId}\n`;
+        }
+        if (result.publicKey) {
+          response += `Author: ${formatPubkey(result.publicKey)}\n`;
+        }
+        response += `Content: "${content}"\n`;
+        if (tags && tags.length > 0) {
+          response += `Tags: ${JSON.stringify(tags)}\n`;
+        }
+        if (relays && relays.length > 0) {
+          response += `Relays: ${relays.join(", ")}\n`;
+        }
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: response,
+            },
+          ],
+        };
+      } else {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Failed to post note: ${result.message}`,
+            },
+          ],
+        };
+      }
+    } catch (error) {
+      console.error("Error in postNote tool:", error);
+      
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error posting note: ${error instanceof Error ? error.message : "Unknown error"}`,
+          },
+        ],
+      };
+    }
+  },
+);
+
+// Register note creation and publishing tools
+server.tool(
+  "createNote",
+  "Create a new kind 1 note event (unsigned)",
+  createNoteToolConfig,
+  async ({ privateKey, content, tags }) => {
+    try {
+      const result = await createNote(privateKey, content, tags);
+      
+      if (result.success) {
+        let response = `Note event created successfully!\n\n`;
+        response += `${result.message}\n`;
+        if (result.publicKey) {
+          response += `Author: ${formatPubkey(result.publicKey)}\n`;
+        }
+        response += `Content: "${content}"\n`;
+        if (tags && tags.length > 0) {
+          response += `Tags: ${JSON.stringify(tags)}\n`;
+        }
+        
+        response += `\nNote Event (unsigned):\n${JSON.stringify(result.noteEvent, null, 2)}`;
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: response,
+            },
+          ],
+        };
+      } else {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Failed to create note: ${result.message}`,
+            },
+          ],
+        };
+      }
+    } catch (error) {
+      console.error("Error in createNote tool:", error);
+      
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error creating note: ${error instanceof Error ? error.message : "Unknown error"}`,
+          },
+        ],
+      };
+    }
+  },
+);
+
+server.tool(
+  "signNote",
+  "Sign a note event with a private key",
+  signNoteToolConfig,
+  async ({ privateKey, noteEvent }) => {
+    try {
+      const result = await signNote(privateKey, noteEvent);
+      
+      if (result.success) {
+        let response = `Note signed successfully!\n\n`;
+        response += `${result.message}\n`;
+        response += `Note ID: ${result.signedNote?.id}\n`;
+        response += `Content: "${noteEvent.content}"\n`;
+        
+        response += `\nSigned Note Event:\n${JSON.stringify(result.signedNote, null, 2)}`;
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: response,
+            },
+          ],
+        };
+      } else {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Failed to sign note: ${result.message}`,
+            },
+          ],
+        };
+      }
+    } catch (error) {
+      console.error("Error in signNote tool:", error);
+      
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error signing note: ${error instanceof Error ? error.message : "Unknown error"}`,
+          },
+        ],
+      };
+    }
+  },
+);
+
+server.tool(
+  "publishNote",
+  "Publish a signed note to Nostr relays",
+  publishNoteToolConfig,
+  async ({ signedNote, relays }) => {
+    try {
+      const result = await publishNote(signedNote, relays);
+      
+      if (result.success) {
+        let response = `Note published successfully!\n\n`;
+        response += `${result.message}\n`;
+        if (result.noteId) {
+          response += `Note ID: ${result.noteId}\n`;
+        }
+        response += `Content: "${signedNote.content}"\n`;
+        response += `Author: ${formatPubkey(signedNote.pubkey)}\n`;
+        if (relays && relays.length > 0) {
+          response += `Relays: ${relays.join(", ")}\n`;
+        }
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: response,
+            },
+          ],
+        };
+      } else {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Failed to publish note: ${result.message}`,
+            },
+          ],
+        };
+      }
+    } catch (error) {
+      console.error("Error in publishNote tool:", error);
+      
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error publishing note: ${error instanceof Error ? error.message : "Unknown error"}`,
           },
         ],
       };
