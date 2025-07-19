@@ -51,6 +51,13 @@ import {
   updateProfileToolConfig,
   postNoteToolConfig
 } from "./profile/profile-tools.js";
+import {
+  convertNip19,
+  analyzeNip19,
+  convertNip19ToolConfig,
+  analyzeNip19ToolConfig,
+  formatAnalysisResult
+} from "./utils/nip19-tools.js";
 
 // Set WebSocket implementation for Node.js
 (globalThis as any).WebSocket = WebSocket;
@@ -982,6 +989,162 @@ server.tool(
           {
             type: "text",
             text: `Error preparing anonymous zap: ${errorMessage}`,
+          },
+        ],
+      };
+    }
+  },
+);
+
+// Register NIP-19 conversion tools
+server.tool(
+  "convertNip19",
+  "Convert any NIP-19 entity (npub, nsec, note, nprofile, nevent, naddr) to another format",
+  convertNip19ToolConfig,
+  async ({ input, targetType, relays, author, kind, identifier }) => {
+    try {
+      const result = await convertNip19(input, targetType, relays, author, kind, identifier);
+      
+      if (result.success) {
+        let response = `Conversion successful!\n\n`;
+        response += `Original: ${result.originalType} entity\n`;
+        response += `Target: ${targetType}\n`;
+        response += `Result: ${result.result}\n`;
+        
+        if (result.originalType && ['nprofile', 'nevent', 'naddr'].includes(result.originalType)) {
+          response += `\nOriginal entity data:\n${formatAnalysisResult(result.originalType, result.data)}`;
+        }
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: response,
+            },
+          ],
+        };
+      } else {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Conversion failed: ${result.message}`,
+            },
+          ],
+        };
+      }
+    } catch (error) {
+      console.error("Error in convertNip19 tool:", error);
+      
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error during conversion: ${error instanceof Error ? error.message : "Unknown error"}`,
+          },
+        ],
+      };
+    }
+  },
+);
+
+server.tool(
+  "analyzeNip19",
+  "Analyze any NIP-19 entity or hex string to understand its type and contents",
+  analyzeNip19ToolConfig,
+  async ({ input }) => {
+    try {
+      const result = await analyzeNip19(input);
+      
+      if (result.success) {
+        let response = `Analysis successful!\n\n`;
+        response += `Type: ${result.type}\n\n`;
+        response += formatAnalysisResult(result.type!, result.data);
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: response,
+            },
+          ],
+        };
+      } else {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Analysis failed: ${result.message}`,
+            },
+          ],
+        };
+      }
+    } catch (error) {
+      console.error("Error in analyzeNip19 tool:", error);
+      
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error during analysis: ${error instanceof Error ? error.message : "Unknown error"}`,
+          },
+        ],
+      };
+    }
+  },
+);
+
+server.tool(
+  "postAnonymousNote",
+  "Post an anonymous note to the Nostr network using a temporary keypair",
+  postAnonymousNoteToolConfig,
+  async ({ content, relays, tags }) => {
+    try {
+      const result = await postAnonymousNote(content, relays, tags);
+      
+      if (result.success) {
+        let response = `Anonymous note posted successfully!\n\n`;
+        response += `${result.message}\n`;
+        if (result.noteId) {
+          response += `Note ID: ${result.noteId}\n`;
+        }
+        if (result.publicKey) {
+          response += `Anonymous Author: ${formatPubkey(result.publicKey)}\n`;
+        }
+        response += `Content: "${content}"\n`;
+        if (tags && tags.length > 0) {
+          response += `Tags: ${JSON.stringify(tags)}\n`;
+        }
+        if (relays && relays.length > 0) {
+          response += `Relays: ${relays.join(", ")}\n`;
+        }
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: response,
+            },
+          ],
+        };
+      } else {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Failed to post anonymous note: ${result.message}`,
+            },
+          ],
+        };
+      }
+    } catch (error) {
+      console.error("Error in postAnonymousNote tool:", error);
+      
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error posting anonymous note: ${error instanceof Error ? error.message : "Unknown error"}`,
           },
         ],
       };

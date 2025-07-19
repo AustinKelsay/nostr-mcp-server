@@ -144,16 +144,17 @@ export async function postAnonymousNote(
       
       const publicKey = keys.publicKey;
       
-      // Publish to relays
-      const pubPromises = relays.map(relay => 
-        pool.publish([relay], signedNote)
-      );
+      // Publish to relays and wait for actual relay OK responses
+      const pubPromises = pool.publish(relays, signedNote);
       
       // Wait for all publish attempts to complete or timeout
       const results = await Promise.allSettled(pubPromises);
       
-      // Check if at least one relay accepted the note
-      const successCount = results.filter(r => r.status === 'fulfilled').length;
+      // Check if at least one relay actually accepted the event
+      // A fulfilled promise means relay responded, but we need to check if it accepted
+      const successCount = results.filter(r => 
+        r.status === 'fulfilled' && r.value.success === true
+      ).length;
       
       if (successCount === 0) {
         return {
@@ -321,16 +322,17 @@ export async function publishNote(
     const pool = getFreshPool(relays);
     
     try {
-      // Publish to relays
-      const pubPromises = relays.map(relay => 
-        pool.publish([relay], signedNote)
-      );
+      // Publish to relays and wait for actual relay OK responses
+      const pubPromises = pool.publish(relays, signedNote);
       
       // Wait for all publish attempts to complete or timeout
       const results = await Promise.allSettled(pubPromises);
       
-      // Check if at least one relay accepted the note
-      const successCount = results.filter(r => r.status === 'fulfilled').length;
+      // Check if at least one relay actually accepted the event
+      // A fulfilled promise means relay responded, but we need to check if it accepted
+      const successCount = results.filter(r => 
+        r.status === 'fulfilled' && r.value.success === true
+      ).length;
       
       if (successCount === 0) {
         return {
