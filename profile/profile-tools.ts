@@ -72,7 +72,7 @@ export async function createKeypair(
     // Generate a new keypair
     const keys = await generateKeypair();
     
-    const result: any = {};
+    const result: { publicKey?: string, privateKey?: string, npub?: string, nsec?: string } = {};
     
     if (format === "hex" || format === "both") {
       result.publicKey = keys.publicKey;
@@ -114,7 +114,15 @@ export async function createProfile(
     const publicKey = getPublicKeyFromPrivate(normalizedPrivateKey);
     
     // Create profile metadata object
-    const metadata: any = {};
+    const metadata: {
+      name?: string;
+      about?: string;
+      picture?: string;
+      nip05?: string;
+      lud16?: string;
+      lud06?: string;
+      website?: string;
+    } = {};
     if (profileData.name) metadata.name = profileData.name;
     if (profileData.about) metadata.about = profileData.about;
     if (profileData.picture) metadata.picture = profileData.picture;
@@ -155,16 +163,16 @@ export async function createProfile(
         };
       }
       
-      // Publish to relays
-      const pubPromises = relays.map(relay => 
-        pool.publish([relay], signedProfile)
-      );
+      // Publish to relays - pool.publish returns array of promises
+      const pubPromises = pool.publish(relays, signedProfile);
       
       // Wait for all publish attempts to complete or timeout
       const results = await Promise.allSettled(pubPromises);
       
       // Check if at least one relay accepted the profile
-      const successCount = results.filter(r => r.status === 'fulfilled').length;
+      const successCount = results.filter(r => 
+        r.status === 'fulfilled' && r.value?.success === true
+      ).length;
       
       if (successCount === 0) {
         return {
@@ -188,7 +196,7 @@ export async function createProfile(
       };
     } finally {
       // Clean up any subscriptions and close the pool
-      await pool.close(relays);
+      await pool.close();
     }
   } catch (error) {
     return {
@@ -271,16 +279,16 @@ export async function postNote(
         };
       }
       
-      // Publish to relays
-      const pubPromises = relays.map(relay => 
-        pool.publish([relay], signedNote)
-      );
+      // Publish to relays - pool.publish returns array of promises
+      const pubPromises = pool.publish(relays, signedNote);
       
       // Wait for all publish attempts to complete or timeout
       const results = await Promise.allSettled(pubPromises);
       
       // Check if at least one relay accepted the note
-      const successCount = results.filter(r => r.status === 'fulfilled').length;
+      const successCount = results.filter(r => 
+        r.status === 'fulfilled' && r.value?.success === true
+      ).length;
       
       if (successCount === 0) {
         return {
@@ -304,7 +312,7 @@ export async function postNote(
       };
     } finally {
       // Clean up any subscriptions and close the pool
-      await pool.close(relays);
+      await pool.close();
     }
   } catch (error) {
     return {

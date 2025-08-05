@@ -308,6 +308,8 @@ export function convertNip19Entity(options: ConversionInput): ConversionResult {
 
 /**
  * Extract hex data from any entity type
+ * For entities that contain multiple hex values (like nevent), this function
+ * prioritizes pubkeys over event IDs for compatibility with npub/nprofile conversions
  */
 function extractHexFromEntity(sourceType: string, sourceData: any): string | null {
   switch (sourceType) {
@@ -320,7 +322,11 @@ function extractHexFromEntity(sourceType: string, sourceData: any): string | nul
     case 'nprofile':
       return sourceData.pubkey;
     case 'nevent':
-      return sourceData.author || sourceData.id;
+      // For nevent, we return the author pubkey if available
+      // This is because extractHexFromEntity is primarily used for pubkey extraction
+      // when converting to npub/nprofile formats
+      // If you need the event ID, access sourceData.id directly
+      return sourceData.author || null;
     case 'naddr':
       return sourceData.pubkey;
     default:

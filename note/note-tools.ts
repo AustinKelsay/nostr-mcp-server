@@ -178,7 +178,7 @@ export async function postAnonymousNote(
       };
     } finally {
       // Clean up any subscriptions and close the pool
-      await pool.close(relays);
+      await pool.close();
     }
   } catch (error) {
     return {
@@ -355,7 +355,7 @@ export async function publishNote(
       };
     } finally {
       // Clean up any subscriptions and close the pool
-      await pool.close(relays);
+      await pool.close();
     }
   } catch (error) {
     return {

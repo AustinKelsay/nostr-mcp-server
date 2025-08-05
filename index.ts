@@ -140,7 +140,7 @@ server.tool(
       };
     } finally {
       // Clean up any subscriptions and close the pool
-      await pool.close(relaysToUse);
+      await pool.close();
     }
   }
 );
@@ -221,7 +221,7 @@ server.tool(
       };
     } finally {
       // Clean up any subscriptions and close the pool
-      await pool.close(relaysToUse);
+      await pool.close();
     }
   }
 );
@@ -365,7 +365,7 @@ server.tool(
       };
     } finally {
       // Clean up any subscriptions and close the pool
-      await pool.close(relaysToUse);
+      await pool.close();
     }
   },
 );
@@ -556,7 +556,7 @@ server.tool(
       };
     } finally {
       // Clean up any subscriptions and close the pool
-      await pool.close(relaysToUse);
+      await pool.close();
     }
   },
 );
@@ -779,7 +779,7 @@ server.tool(
       };
     } finally {
       // Clean up any subscriptions and close the pool
-      await pool.close(relaysToUse);
+      await pool.close();
     }
   },
 );
@@ -883,7 +883,7 @@ server.tool(
       };
     } finally {
       // Clean up any subscriptions and close the pool
-      await pool.close(relaysToUse);
+      await pool.close();
     }
   }
 );
