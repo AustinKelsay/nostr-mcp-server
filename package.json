@@ -10,7 +10,11 @@
   "scripts": {
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config=jest.config.cjs --forceExit",
     "build": "tsc && node -e \"require('fs').chmodSync('build/index.js', '755')\"",
-    "start": "node build/index.js"
+    "start": "node build/index.js",
+    "prerelease": "npm test && npm run build",
+    "release:patch": "npm run prerelease && npm version patch",
+    "release:minor": "npm run prerelease && npm version minor",
+    "release:major": "npm run prerelease && npm version major"
   },
   "files": [
     "build"
