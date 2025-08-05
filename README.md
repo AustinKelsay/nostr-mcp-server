@@ -1,5 +1,8 @@
 # Nostr MCP Server
 
+[![npm version](https://badge.fury.io/js/nostr-mcp-server.svg)](https://www.npmjs.com/package/nostr-mcp-server)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 A Model Context Protocol (MCP) server that provides Nostr capabilities to LLMs like Claude.
 
 https://github.com/user-attachments/assets/1d2d47d0-c61b-44e2-85be-5985d2a81c64

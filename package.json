@@ -35,7 +35,7 @@
     "url": "https://github.com/AustinKelsay/nostr-mcp-server/issues"
   },
   "homepage": "https://github.com/AustinKelsay/nostr-mcp-server#readme",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.11.0",
     "@noble/curves": "^1.8.2",
