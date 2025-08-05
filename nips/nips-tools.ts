@@ -87,7 +87,7 @@ function loadCacheFromDisk(): boolean {
           
           // Check if cache is fresh enough
           if (Date.now() - lastFetchTime < CACHE_TTL) {
-            console.error(`Loaded ${nipsCache.length} NIPs from cache file`);
+
             buildSearchIndex();
             return true;
           } else {
@@ -138,7 +138,7 @@ function saveCacheToDisk(): void {
 
 // Build search index from nips cache - optimized for speed
 function buildSearchIndex(): void {
-  console.error('Starting buildSearchIndex');
+
   
   // Reset indexes
   searchIndex = {
@@ -232,8 +232,7 @@ function buildSearchIndex(): void {
     }
   }
   
-  console.error('Completed buildSearchIndex');
-  console.error(`Built search index for ${nipsCache.length} NIPs with ${uniqueWords.size} unique terms`);
+
 }
 
 // Calculate exponential backoff time for retries
@@ -383,10 +382,32 @@ async function fetchNipFile(file: GitHubFile, attemptNumber: number): Promise<Ni
       parseInt(numberStr, 16) : 
       parseInt(numberStr, 10);
     
-    // More efficient parsing
+    // More efficient parsing - fix title extraction
     const lines = content.split('\n');
-    const title = lines[0].replace(/^#\s*/, '').trim();
-    const description = lines[1]?.trim() || `NIP-${number} description`;
+    
+    // Find the actual title after the NIP header
+    let title = `NIP-${number}`;  // fallback
+    let description = `NIP-${number} description`;  // fallback
+    
+    // Look for the title after the initial header and any decorative lines
+    for (let i = 1; i < Math.min(lines.length, 10); i++) {
+      const line = lines[i].trim();
+      
+      // Skip empty lines and decorative lines (like ======)
+      if (!line || line.match(/^[=\-_]+$/)) {
+        continue;
+      }
+      
+      // Skip lines that look like metadata tags (like `draft` `mandatory`)
+      if (line.match(/^`[^`]+`(\s+`[^`]+`)*$/)) {
+        continue;
+      }
+      
+      // This should be the actual title
+      title = line;
+      description = line;  // Use the same line for both title and description
+      break;
+    }
     
     // Optimize regex searches
     const statusRegex = /Status:\s*(draft|final|deprecated)/i;
@@ -549,7 +570,7 @@ function calculateRelevance(nip: NipData, searchTerms: string[]): { score: numbe
 
 // Improved search function with performance optimizations
 export async function searchNips(query: string, limit: number = 10): Promise<NipSearchResult[]> {
-  console.error('Starting searchNips');
+
   
   // Ensure we have NIPs data and the search index is built
   const nips = await getNips();
@@ -659,8 +680,7 @@ export async function searchNips(query: string, limit: number = 10): Promise<Nip
   results.sort((a, b) => b.relevance - a.relevance);
   const limitedResults = results.slice(0, limit);
   
-  console.error('Completed searchNips');
-  console.error(`Search for "${query}" found ${results.length} results, returning top ${limitedResults.length}`);
+
   
   return limitedResults;
 }
