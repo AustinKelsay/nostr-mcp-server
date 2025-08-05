@@ -6,7 +6,7 @@ https://github.com/user-attachments/assets/1d2d47d0-c61b-44e2-85be-5985d2a81c64
 
 ## Features
 
-This server implements several tools for interacting with the Nostr network:
+This server implements 18 tools for interacting with the Nostr network:
 
 ### Reading & Querying Tools
 1. `getProfile`: Fetches a user's profile information by public key
@@ -31,6 +31,10 @@ This server implements several tools for interacting with the Nostr network:
 ### Anonymous Tools
 15. `sendAnonymousZap`: Prepare an anonymous zap to a profile or event, generating a lightning invoice for payment
 16. `postAnonymousNote`: Post an anonymous note using a randomly generated one-time keypair
+
+### NIP-19 Entity Tools
+17. `convertNip19`: Convert between different NIP-19 entity formats (hex, npub, nsec, note, nprofile, nevent, naddr)
+18. `analyzeNip19`: Analyze and decode any NIP-19 entity to understand its type and contents
 
 All tools fully support both hex public keys and npub format, with user-friendly display of Nostr identifiers.
 
@@ -118,6 +122,35 @@ npm run build
 
 4. Restart Cursor.
 
+## Connecting to Goose
+
+1. Make sure you have [Goose](https://github.com/block/goose) installed and properly configured.
+
+2. Add the Nostr MCP server to your Goose configuration:
+
+   Open your Goose configuration file (typically `~/.config/goose/profiles.yaml`) and add the following to your profile's `mcpServers` section:
+
+   ```yaml
+   profiles:
+     default:
+       provider: # your existing provider config
+       model: # your existing model config
+       mcpServers:
+         - name: nostr
+           command: node
+           args:
+             - /ABSOLUTE/PATH/TO/nostr-mcp-server/build/index.js
+   ```
+
+   Be sure to replace `/ABSOLUTE/PATH/TO/` with the actual path to your project.
+
+3. Restart Goose or reload your configuration for the changes to take effect.
+
+4. You can verify the MCP server is connected by asking Goose:
+   ```
+   What MCP tools do you have available for Nostr?
+   ```
+
 ## Usage in Claude
 
 Once configured, you can ask Claude to use the Nostr tools by making requests like:
@@ -150,6 +183,13 @@ Once configured, you can ask Claude to use the Nostr tools by making requests li
 - "Send 1000 sats to note1abcdef... with a comment saying 'Great post!'"
 - "Post an anonymous note saying 'Hello Nostr world!'"
 - "Create an anonymous post with tags #bitcoin and #nostr"
+
+### NIP-19 Entity Conversion & Analysis
+- "Convert this hex pubkey to npub: 06639334b39dd9cf4aa1323375931bec1d6cd43b5de30af7b70b08262e5f6e3f"
+- "Convert npub1qny3tkh0acurzla8x3zy4nhrjz5zd8ne6dvrjehx9n9hr3lnj08qwuzwc8 to hex format"
+- "Convert this note ID to nevent format with relay hints"
+- "What type of entity is nprofile1qqsw3dy8cpu...? Analyze it for me"
+- "Decode and analyze this NIP-19 entity: nevent1qqs..."
 
 The server automatically handles conversion between npub and hex formats, so you can use either format in your queries. Results are displayed with user-friendly npub identifiers.
 
@@ -271,7 +311,7 @@ For NIP searches, you can control the number of results and include full content
 
 ## Implementation Details
 
-- Built with **snstr** - a lightweight, modern TypeScript library for Nostr protocol implementation
+- Built with **[snstr](https://github.com/austinkelsay/snstr)** - a lightweight, modern TypeScript library for Nostr protocol implementation
 - Native support for npub format using NIP-19 encoding/decoding
 - NIP-57 compliant zap receipt detection with direction-awareness (sent/received/self)
 - Advanced bolt11 invoice parsing with payment amount extraction
@@ -329,8 +369,9 @@ To modify or extend this server:
    - `nips/nips-tools.ts`: Functions for searching NIPs ([Documentation](./nips/README.md))
    - `utils/`: Shared utility functions
      - `constants.ts`: Global constants and relay configurations
-     - `conversion.ts`: Pubkey format conversion utilities
+     - `conversion.ts`: NIP-19 entity conversion utilities (hex/npub/nprofile/nevent/naddr)
      - `formatting.ts`: Output formatting helpers
+     - `nip19-tools.ts`: NIP-19 entity conversion and analysis tools
      - `pool.ts`: Nostr connection pool management
      - `ephemeral-relay.ts`: In-memory Nostr relay for testing
 
@@ -360,8 +401,13 @@ The test suite includes:
 - `profile-notes-simple.test.ts` - Tests profile and note data structures
 - `profile-tools.test.ts` - Tests keypair generation, profile creation, and identity management
 - `note-creation.test.ts` - Tests note creation, signing, and publishing workflows
+- `note-tools-functions.test.ts` - Tests note formatting, creation, signing, and publishing functions
+- `note-tools-unit.test.ts` - Unit tests for note formatting functions
 - `profile-postnote.test.ts` - Tests authenticated note posting with existing private keys
 - `zap-tools-simple.test.ts` - Tests zap processing and anonymous zap preparation
+- `zap-tools-tests.test.ts` - Tests zap validation, parsing, and direction determination
+- `search-nips-simple.test.ts` - Tests NIPs search functionality with relevance scoring
+- `nip19-conversion.test.ts` - Tests NIP-19 entity conversion and analysis (28 test cases)
 
 ### Integration Tests
 - `integration.test.ts` - Tests interaction with an ephemeral Nostr relay including:

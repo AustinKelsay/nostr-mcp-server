@@ -115,7 +115,7 @@ export async function postAnonymousNote(
   tags: string[][] = []
 ): Promise<{ success: boolean, message: string, noteId?: string, publicKey?: string }> {
   try {
-    console.error(`Preparing to post anonymous note to ${relays.join(", ")}`);
+    // console.error(`Preparing to post anonymous note to ${relays.join(", ")}`);
     
     // Create a fresh pool for this request
     const pool = getFreshPool(relays);
@@ -307,7 +307,7 @@ export async function publishNote(
   relays: string[] = DEFAULT_RELAYS
 ): Promise<{ success: boolean, message: string, noteId?: string }> {
   try {
-    console.error(`Preparing to publish note to ${relays.join(", ")}`);
+    // console.error(`Preparing to publish note to ${relays.join(", ")}`);
     
     // If no relays specified, just return success with event validation
     if (relays.length === 0) {

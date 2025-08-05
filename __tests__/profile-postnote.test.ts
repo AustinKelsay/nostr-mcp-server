@@ -1,7 +1,5 @@
-import { jest } from '@jest/globals';
 import { postNote } from '../profile/profile-tools.js';
 import { createKeypair } from '../profile/profile-tools.js';
-import { schnorr } from '@noble/curves/secp256k1';
 
 describe('Profile postNote Tool', () => {
   describe('postNote', () => {

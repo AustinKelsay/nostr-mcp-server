@@ -948,7 +948,7 @@ server.tool(
     const relaysToUse = relays || DEFAULT_RELAYS;
     
     try {
-      console.error(`Preparing anonymous zap to ${target} for ${amountSats} sats`);
+      // console.error(`Preparing anonymous zap to ${target} for ${amountSats} sats`);
       
       // Prepare the anonymous zap
       const zapResult = await prepareAnonymousZap(target, amountSats, comment, relaysToUse);

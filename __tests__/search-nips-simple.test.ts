@@ -12,9 +12,9 @@ describe('Search NIPs Tool - Simple Tests', () => {
       expect(Array.isArray(result)).toBe(true);
       
       // Should find NIP-01 when searching for "protocol"
-      const nip01 = result.find(nip => nip.number === 1);
+      const nip01 = result.find(searchResult => searchResult.nip.number === 1);
       if (nip01) {
-        expect(nip01.title.toLowerCase()).toContain('protocol');
+        expect(nip01.nip.title.toLowerCase()).toContain('protocol');
       }
     });
 

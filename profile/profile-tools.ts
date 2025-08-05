@@ -48,12 +48,23 @@ export const postNoteToolConfig = {
 // Helper function to convert private key to hex if nsec format
 function normalizePrivateKey(privateKey: string): string {
   if (privateKey.startsWith('nsec')) {
+    // Validate nsec format before type assertion
+    if (!/^nsec1[0-9a-z]+$/.test(privateKey)) {
+      throw new Error('Invalid nsec format: must match pattern nsec1[0-9a-z]+');
+    }
+    
     const decoded = nip19decode(privateKey as `${string}1${string}`);
     if (decoded.type !== 'nsec') {
       throw new Error('Invalid nsec format');
     }
     return decoded.data;
   }
+  
+  // Validate hex format for non-nsec keys
+  if (!/^[0-9a-f]{64}$/.test(privateKey)) {
+    throw new Error('Invalid private key format: must be 64-character hex string or valid nsec format');
+  }
+  
   return privateKey;
 }
 
@@ -239,7 +250,7 @@ export async function postNote(
   relays: string[] = DEFAULT_RELAYS
 ): Promise<{ success: boolean, message: string, noteId?: string, publicKey?: string }> {
   try {
-    console.error(`Preparing to post authenticated note to ${relays.join(", ")}`);
+    // console.log(`Preparing to post authenticated note to ${relays.join(", ")}`);
     
     // Normalize private key
     const normalizedPrivateKey = normalizePrivateKey(privateKey);

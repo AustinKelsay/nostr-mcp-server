@@ -216,7 +216,7 @@ export function convertNip19Entity(options: ConversionInput): ConversionResult {
         if (sourceType !== 'nsec' && sourceType !== 'hex') {
           throw new Error('Can only convert private keys to nsec format');
         }
-        const privkeyHex = sourceType === 'nsec' ? sourceData : sourceData;
+        const privkeyHex = sourceData;
         result = encodePrivateKey(privkeyHex);
         break;
 
