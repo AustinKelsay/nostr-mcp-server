@@ -5,7 +5,7 @@
   "main": "build/index.js",
   "type": "module",
   "bin": {
-    "nostr-mcp": "./build/index.js"
+    "nostr-mcp-server": "./build/index.js"
   },
   "scripts": {
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config=jest.config.cjs --forceExit",
@@ -26,7 +26,15 @@
     "claude",
     "llm"
   ],
-  "author": "",
+  "author": "Austin Kelsay <austinkelsay@protonmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AustinKelsay/nostr-mcp-server.git"
+  },
+  "bugs": {
+    "url": "https://github.com/AustinKelsay/nostr-mcp-server/issues"
+  },
+  "homepage": "https://github.com/AustinKelsay/nostr-mcp-server#readme",
   "license": "ISC",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.11.0",

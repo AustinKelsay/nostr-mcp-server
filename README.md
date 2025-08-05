@@ -40,6 +40,14 @@ All tools fully support both hex public keys and npub format, with user-friendly
 
 ## Installation
 
+### Option 1: Install from npm (Recommended)
+
+```bash
+npm install -g nostr-mcp-server
+```
+
+### Option 2: Install from source
+
 ```bash
 # Clone the repository
 git clone https://github.com/austinkelsay/nostr-mcp-server.git
@@ -70,6 +78,21 @@ npm run build
 
 3. Add the Nostr server to your configuration:
 
+   **If installed via npm:**
+   ```json
+   {
+       "mcpServers": {
+           "nostr": {
+               "command": "npx",
+               "args": [
+                   "nostr-mcp-server"
+               ]
+           }
+       }
+   }
+   ```
+
+   **If installed from source:**
    ```json
    {
        "mcpServers": {
@@ -83,7 +106,7 @@ npm run build
    }
    ```
 
-   Be sure to replace `/ABSOLUTE/PATH/TO/` with the actual path to your project.
+   For source installations, replace `/ABSOLUTE/PATH/TO/` with the actual path to your project.
 
 4. Restart Claude for Desktop.
 
@@ -105,6 +128,21 @@ npm run build
 
 3. Add the Nostr server to your configuration:
 
+   **If installed via npm:**
+   ```json
+   {
+       "mcpServers": {
+           "nostr": {
+               "command": "npx",
+               "args": [
+                   "nostr-mcp-server"
+               ]
+           }
+       }
+   }
+   ```
+
+   **If installed from source:**
    ```json
    {
        "mcpServers": {
@@ -118,7 +156,7 @@ npm run build
    }
    ```
 
-   Be sure to replace `/ABSOLUTE/PATH/TO/` with the actual path to your project.
+   For source installations, replace `/ABSOLUTE/PATH/TO/` with the actual path to your project.
 
 4. Restart Cursor.
 
@@ -130,6 +168,20 @@ npm run build
 
    Open your Goose configuration file (typically `~/.config/goose/profiles.yaml`) and add the following to your profile's `mcpServers` section:
 
+   **If installed via npm:**
+   ```yaml
+   profiles:
+     default:
+       provider: # your existing provider config
+       model: # your existing model config
+       mcpServers:
+         - name: nostr
+           command: npx
+           args:
+             - nostr-mcp-server
+   ```
+
+   **If installed from source:**
    ```yaml
    profiles:
      default:
@@ -142,7 +194,7 @@ npm run build
              - /ABSOLUTE/PATH/TO/nostr-mcp-server/build/index.js
    ```
 
-   Be sure to replace `/ABSOLUTE/PATH/TO/` with the actual path to your project.
+   For source installations, replace `/ABSOLUTE/PATH/TO/` with the actual path to your project.
 
 3. Restart Goose or reload your configuration for the changes to take effect.
 

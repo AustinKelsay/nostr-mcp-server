@@ -1,0 +1,51 @@
+# Source files
+*.ts
+!*.d.ts
+
+# Test files
+__tests__/
+*.test.ts
+*.test.js
+jest.config.cjs
+jest.setup.js
+tsconfig.jest.json
+
+# Development files
+.github/
+_docs/
+prompts/
+src/
+claude_desktop_config.sample.json
+CLAUDE.md
+RELEASE.md
+
+# Config files
+tsconfig.json
+.gitignore
+.git/
+
+# Utils test helpers
+utils/test-helpers.js
+utils/nip-test-helpers.js
+utils/zap-test-helpers.js
+utils/ephemeral-relay.ts
+
+# Build artifacts
+*.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Keep built files
+!build/

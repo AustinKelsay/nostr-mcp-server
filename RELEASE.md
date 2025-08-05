@@ -74,13 +74,15 @@ git push origin v1.1.0
 5. Copy the relevant section from CHANGELOG.md into the description
 6. Click "Publish release"
 
-### 6. (Optional) Publish to npm
+### 6. Publish to npm
 
-If you want to publish to npm:
+Publish your package to npm:
 
 ```bash
 npm publish
 ```
+
+Note: You'll need to be logged in to npm (`npm login`) with an account that has publish permissions.
 
 ## Version Guidelines
 
