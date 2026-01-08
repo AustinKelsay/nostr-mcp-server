@@ -5,7 +5,7 @@
   "main": "build/index.js",
   "type": "module",
   "bin": {
-    "nostr-mcp-server": "./build/index.js"
+    "nostr-mcp-server": "build/index.js"
   },
   "scripts": {
     "test": "bun test",
