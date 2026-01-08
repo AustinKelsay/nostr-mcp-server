@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'bun:test';
 import { postNote } from '../profile/profile-tools.js';
 import { createKeypair } from '../profile/profile-tools.js';
 

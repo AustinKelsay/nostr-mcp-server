@@ -1,4 +1,4 @@
-import { jest } from '@jest/globals';
+import { describe, it, expect } from 'bun:test';
 import { createNote, signNote, publishNote } from '../note/note-tools.js';
 import { createKeypair } from '../profile/profile-tools.js';
 import { schnorr } from '@noble/curves/secp256k1';

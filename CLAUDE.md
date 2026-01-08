@@ -12,16 +12,19 @@ Built with **snstr** (lightweight TypeScript Nostr library) and the **@modelcont
 
 ```bash
 # Build the project (compiles TypeScript and sets executable permissions)
-npm run build
+bun run build
 
 # Run all tests
-npm test
+bun test
 
 # Run a specific test file
-npm test -- __tests__/basic.test.ts
+bun test __tests__/basic.test.ts
 
 # Start the MCP server
-npm start
+bun start
+
+# Start with Node.js (runtime is dual-compatible)
+npm run start:node
 ```
 
 ## Architecture
@@ -58,12 +61,12 @@ Each feature area has its own directory with a `*-tools.ts` file containing:
 
 ## Testing
 
-Tests use Jest with an ephemeral in-memory relay (`utils/ephemeral-relay.ts`) - no external network needed.
+Tests use Bun's native test runner with an ephemeral in-memory relay (`utils/ephemeral-relay.ts`) - no external network needed.
 
 - **Unit tests**: `basic.test.ts`, `profile-tools.test.ts`, `note-*.test.ts`, `zap-*.test.ts`, `nip19-*.test.ts`
 - **Integration tests**: `integration.test.ts` (relay interaction), `websocket-integration.test.ts` (WebSocket protocol)
 
-The test suite uses `--forceExit` flag and proper cleanup to prevent hanging processes.
+Note: Tests require Bun. The runtime is dual-compatible (Bun or Node.js).
 
 ## Key Dependencies
 - `snstr` - Nostr protocol (keypairs, events, signing, NIP-19)

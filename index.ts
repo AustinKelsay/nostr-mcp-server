@@ -57,8 +57,10 @@ import {
   formatAnalysisResult
 } from "./utils/nip19-tools.js";
 
-// Set WebSocket implementation for Node.js
-(globalThis as any).WebSocket = WebSocket;
+// Set WebSocket implementation for Node.js (Bun has native WebSocket)
+if (typeof globalThis.WebSocket === 'undefined') {
+  (globalThis as any).WebSocket = WebSocket;
+}
 
 // Create server instance
 const server = new McpServer({

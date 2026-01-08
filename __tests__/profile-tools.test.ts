@@ -1,4 +1,4 @@
-import { jest } from '@jest/globals';
+import { describe, it, expect } from 'bun:test';
 import { createKeypair, createProfile, updateProfile } from '../profile/profile-tools.js';
 import { schnorr } from '@noble/curves/secp256k1';
 
@@ -41,10 +41,10 @@ describe('Profile Tools', () => {
 
     it('should generate cryptographically valid keypairs', async () => {
       const result = await createKeypair('hex');
-      
+
       // Verify that the public key can be derived from the private key
       const derivedPubkey = Buffer.from(schnorr.getPublicKey(result.privateKey!)).toString('hex');
-      expect(derivedPubkey).toBe(result.publicKey);
+      expect(derivedPubkey).toBe(result.publicKey!);
     });
   });
 

@@ -48,7 +48,21 @@ All tools fully support both hex public keys and npub format, with user-friendly
 npm install -g nostr-mcp-server
 ```
 
-### Option 2: Install from source
+### Option 2: Install from source (using Bun - Recommended)
+
+```bash
+# Clone the repository
+git clone https://github.com/austinkelsay/nostr-mcp-server.git
+cd nostr-mcp-server
+
+# Install dependencies
+bun install
+
+# Build the project
+bun run build
+```
+
+### Option 3: Install from source (using npm)
 
 ```bash
 # Clone the repository
@@ -419,23 +433,23 @@ To modify or extend this server:
      - `pool.ts`: Nostr connection pool management
      - `ephemeral-relay.ts`: In-memory Nostr relay for testing
 
-2. Run `npm run build` to compile
+2. Run `bun run build` (or `npm run build`) to compile
 
 3. Restart Claude for Desktop or Cursor to pick up your changes
 
 ## Testing
 
-We've implemented a comprehensive test suite using Jest to test both basic functionality and integration with the Nostr protocol:
+We've implemented a comprehensive test suite using Bun's native test runner to test both basic functionality and integration with the Nostr protocol:
 
 ```bash
-# Run all tests
-npm test
+# Run all tests (using Bun - Recommended)
+bun test
 
 # Run a specific test file
-npm test -- __tests__/basic.test.ts
+bun test __tests__/basic.test.ts
 
 # Run integration tests
-npm test -- __tests__/integration.test.ts
+bun test __tests__/integration.test.ts
 ```
 
 The test suite includes:

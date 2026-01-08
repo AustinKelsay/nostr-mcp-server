@@ -1,7 +1,7 @@
-import { jest } from '@jest/globals';
+import { describe, it, test, expect, beforeAll, afterAll } from 'bun:test';
 import { NostrRelay } from '../utils/ephemeral-relay.js';
 import { schnorr } from '@noble/curves/secp256k1';
-import { randomBytes } from 'crypto';
+import { randomBytes } from 'node:crypto';
 import { sha256 } from '@noble/hashes/sha256';
 
 // Generate a keypair for testing

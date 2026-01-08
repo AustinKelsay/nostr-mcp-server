@@ -1,4 +1,4 @@
-import { jest } from '@jest/globals';
+import { describe, it, expect, beforeAll } from 'bun:test';
 import { generateKeypair, createEvent, getEventHash, signEvent } from 'snstr';
 import { NostrEvent } from '../utils/index.js';
 import { 

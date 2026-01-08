@@ -1,4 +1,4 @@
-import { jest } from '@jest/globals';
+import { describe, it, test, expect } from 'bun:test';
 
 // Define a simple ZapReceipt type for testing
 type ZapReceipt = {
