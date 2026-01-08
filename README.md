@@ -450,9 +450,6 @@ bun test __tests__/basic.test.ts
 
 # Run integration tests
 bun test __tests__/integration.test.ts
-
-# Run tests with Node.js/Jest (fallback)
-npm run test:node
 ```
 
 The test suite includes:

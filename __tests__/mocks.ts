@@ -70,16 +70,6 @@ export const mockZapReceipt = {
   sig: 'mock_signature'
 };
 
-// Mock pool functions
-export const mockPool = {
-  get: mock(() => null),
-  querySync: mock(() => []),
-  close: mock(() => Promise.resolve())
-};
-
-// Mock for getFreshPool function
-export const getFreshPoolMock = mock(() => mockPool);
-
 // Mock response for lightning service for anonymous zaps
 export const mockLightningServiceResponse = {
   callback: 'https://example.com/callback',

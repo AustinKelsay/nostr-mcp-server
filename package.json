@@ -9,8 +9,7 @@
   },
   "scripts": {
     "test": "bun test",
-    "test:node": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config=jest.config.cjs --forceExit",
-    "build": "tsc && chmod +x build/index.js",
+    "build": "tsc && node -e \"require('fs').chmodSync('build/index.js', '755')\"",
     "start": "bun build/index.js",
     "start:node": "node build/index.js",
     "prerelease": "bun test && bun run build",
@@ -50,11 +49,8 @@
   },
   "devDependencies": {
     "@types/bun": "^1.1.14",
-    "@types/jest": "^29.5.14",
     "@types/node": "^22.13.11",
     "@types/ws": "^8.5.10",
-    "jest": "^29.7.0",
-    "ts-jest": "^29.3.2",
     "typescript": "^5.8.2"
   }
 }

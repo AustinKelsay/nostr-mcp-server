@@ -23,10 +23,8 @@ bun test __tests__/basic.test.ts
 # Start the MCP server
 bun start
 
-# Node.js fallbacks (if Bun not available)
-npm run build        # Build
-npm run test:node    # Tests with Jest
-npm run start:node   # Start server
+# Start with Node.js (runtime is dual-compatible)
+npm run start:node
 ```
 
 ## Architecture
@@ -68,7 +66,7 @@ Tests use Bun's native test runner with an ephemeral in-memory relay (`utils/eph
 - **Unit tests**: `basic.test.ts`, `profile-tools.test.ts`, `note-*.test.ts`, `zap-*.test.ts`, `nip19-*.test.ts`
 - **Integration tests**: `integration.test.ts` (relay interaction), `websocket-integration.test.ts` (WebSocket protocol)
 
-The project is dual-compatible: works with both Bun and Node.js. Use `npm run test:node` for Jest fallback.
+Note: Tests require Bun. The runtime is dual-compatible (Bun or Node.js).
 
 ## Key Dependencies
 - `snstr` - Nostr protocol (keypairs, events, signing, NIP-19)
