@@ -2,9 +2,7 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { z } from "zod";
 import WebSocket from "ws";
-import { searchNips, formatNipResult } from "./nips/nips-tools.js";
 import {
   NostrEvent,
   NostrFilter,
@@ -886,57 +884,6 @@ server.tool(
       await pool.close();
     }
   }
-);
-
-server.tool(
-  "searchNips",
-  "Search through Nostr Implementation Possibilities (NIPs)",
-  {
-    query: z.string().describe("Search query to find relevant NIPs"),
-    limit: z.number().min(1).max(50).default(10).describe("Maximum number of results to return"),
-    includeContent: z.boolean().default(false).describe("Whether to include the full content of each NIP in the results"),
-  },
-  async ({ query, limit, includeContent }) => {
-    try {
-      console.error(`Searching NIPs for: "${query}"`);
-      
-      const results = await searchNips(query, limit);
-      
-      if (results.length === 0) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `No NIPs found matching "${query}". Try different search terms or check the NIPs repository for the latest updates.`,
-            },
-          ],
-        };
-      }
-      
-      // Format results using the new formatter
-      const formattedResults = results.map(result => formatNipResult(result, includeContent)).join("\n\n");
-      
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Found ${results.length} matching NIPs:\n\n${formattedResults}`,
-          },
-        ],
-      };
-    } catch (error) {
-      console.error("Error searching NIPs:", error);
-      
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error searching NIPs: ${error instanceof Error ? error.message : "Unknown error"}`,
-          },
-        ],
-      };
-    }
-  },
 );
 
 server.tool(
