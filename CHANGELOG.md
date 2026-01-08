@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-01-08
+
+### Changed
+- Migrated test runner from Jest to Bun's native test runner for faster test execution
+- Simplified build scripts using native shell commands
+- Updated release scripts to use Bun (`bun test && bun run build`)
+
+### Removed
+- NIPs search functionality (`searchNips` tool) - simplifies the server by removing external GitHub API dependencies
+- `node-fetch` dependency (Bun has built-in fetch support)
+- Jest configuration and dependencies (`jest.config.cjs`, `jest.setup.js`, `tsconfig.jest.json`)
+
 ## [2.0.0] - 2025-08-05
 
 ### Added
