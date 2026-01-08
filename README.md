@@ -9,7 +9,7 @@ https://github.com/user-attachments/assets/1d2d47d0-c61b-44e2-85be-5985d2a81c64
 
 ## Features
 
-This server implements 18 tools for interacting with the Nostr network:
+This server implements 17 tools for interacting with the Nostr network:
 
 ### Reading & Querying Tools
 1. `getProfile`: Fetches a user's profile information by public key
@@ -18,26 +18,25 @@ This server implements 18 tools for interacting with the Nostr network:
 4. `getReceivedZaps`: Fetches zaps received by a user, including detailed payment information
 5. `getSentZaps`: Fetches zaps sent by a user, including detailed payment information
 6. `getAllZaps`: Fetches both sent and received zaps for a user, clearly labeled with direction and totals
-7. `searchNips`: Search through Nostr Implementation Possibilities (NIPs) with relevance scoring
 
 ### Identity & Profile Management Tools
-8. `createKeypair`: Generate new Nostr keypairs in hex and/or npub/nsec format
-9. `createProfile`: Create a new Nostr profile (kind 0 event) with metadata
-10. `updateProfile`: Update an existing Nostr profile with new metadata
+7. `createKeypair`: Generate new Nostr keypairs in hex and/or npub/nsec format
+8. `createProfile`: Create a new Nostr profile (kind 0 event) with metadata
+9. `updateProfile`: Update an existing Nostr profile with new metadata
 
-### Note Creation & Publishing Tools  
-11. `createNote`: Create unsigned kind 1 note events with specified content and tags
-12. `signNote`: Sign note events with a private key, generating cryptographically valid signatures
-13. `publishNote`: Publish signed notes to specified Nostr relays
-14. `postNote`: All-in-one authenticated note posting using an existing private key (nsec/hex)
+### Note Creation & Publishing Tools
+10. `createNote`: Create unsigned kind 1 note events with specified content and tags
+11. `signNote`: Sign note events with a private key, generating cryptographically valid signatures
+12. `publishNote`: Publish signed notes to specified Nostr relays
+13. `postNote`: All-in-one authenticated note posting using an existing private key (nsec/hex)
 
 ### Anonymous Tools
-15. `sendAnonymousZap`: Prepare an anonymous zap to a profile or event, generating a lightning invoice for payment
-16. `postAnonymousNote`: Post an anonymous note using a randomly generated one-time keypair
+14. `sendAnonymousZap`: Prepare an anonymous zap to a profile or event, generating a lightning invoice for payment
+15. `postAnonymousNote`: Post an anonymous note using a randomly generated one-time keypair
 
 ### NIP-19 Entity Tools
-17. `convertNip19`: Convert between different NIP-19 entity formats (hex, npub, nsec, note, nprofile, nevent, naddr)
-18. `analyzeNip19`: Analyze and decode any NIP-19 entity to understand its type and contents
+16. `convertNip19`: Convert between different NIP-19 entity formats (hex, npub, nsec, note, nprofile, nevent, naddr)
+17. `analyzeNip19`: Analyze and decode any NIP-19 entity to understand its type and contents
 
 All tools fully support both hex public keys and npub format, with user-friendly display of Nostr identifiers.
 
@@ -217,9 +216,6 @@ Once configured, you can ask Claude to use the Nostr tools by making requests li
 - "How many zaps has npub1qny3tkh0acurzla8x3zy4nhrjz5zd8ne6dvrjehx9n9hr3lnj08qwuzwc8 received?"
 - "Show me the zaps sent by npub1qny3tkh0acurzla8x3zy4nhrjz5zd8ne6dvrjehx9n9hr3lnj08qwuzwc8"
 - "Show me all zaps (both sent and received) for npub1qny3tkh0acurzla8x3zy4nhrjz5zd8ne6dvrjehx9n9hr3lnj08qwuzwc8"
-- "Search for NIPs about zaps"
-- "What NIPs are related to long-form content?"
-- "Show me NIP-23 with full content"
 
 ### Identity & Profile Management
 - "Generate a new Nostr keypair for me"
@@ -352,12 +348,6 @@ For zap queries, you can enable extra validation and debugging:
 
 - "Show me all zaps for npub1qny3tkh0acurzla8x3zy4nhrjz5zd8ne6dvrjehx9n9hr3lnj08qwuzwc8 with validation and debug enabled"
 
-For NIP searches, you can control the number of results and include full content:
-
-- "Search for NIPs about zaps with full content"
-- "Show me the top 5 NIPs about relays"
-- "What NIPs are related to encryption? Show me 15 results"
-
 ## Limitations
 
 - The server has a default 8-second timeout for queries to prevent hanging
@@ -421,7 +411,6 @@ To modify or extend this server:
    - `profile/profile-tools.ts`: Identity management, keypair generation, profile creation ([Documentation](./profile/README.md))
    - `note/note-tools.ts`: Note creation, signing, publishing, and reading functionality ([Documentation](./note/README.md))
    - `zap/zap-tools.ts`: Zap-related functionality ([Documentation](./zap/README.md))
-   - `nips/nips-tools.ts`: Functions for searching NIPs ([Documentation](./nips/README.md))
    - `utils/`: Shared utility functions
      - `constants.ts`: Global constants and relay configurations
      - `conversion.ts`: NIP-19 entity conversion utilities (hex/npub/nprofile/nevent/naddr)
@@ -461,7 +450,6 @@ The test suite includes:
 - `profile-postnote.test.ts` - Tests authenticated note posting with existing private keys
 - `zap-tools-simple.test.ts` - Tests zap processing and anonymous zap preparation
 - `zap-tools-tests.test.ts` - Tests zap validation, parsing, and direction determination
-- `search-nips-simple.test.ts` - Tests NIPs search functionality with relevance scoring
 - `nip19-conversion.test.ts` - Tests NIP-19 entity conversion and analysis (28 test cases)
 
 ### Integration Tests
@@ -495,7 +483,6 @@ The codebase is organized into modules:
   - [`profile/`](./profile/README.md): Identity management, keypair generation, and profile creation
   - [`note/`](./note/README.md): Note creation, signing, publishing, and reading functionality
   - [`zap/`](./zap/README.md): Zap handling and anonymous zapping
-  - [`nips/`](./nips/README.md): NIPs search and caching functionality
 - Common utilities in the `utils/` directory
 
 This modular structure makes the codebase more maintainable, reduces duplication, and enables easier feature extensions. For detailed information about each module's features and implementation, see their respective documentation.
