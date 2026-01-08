@@ -1,26 +1,25 @@
-import { jest } from '@jest/globals';
+import { mock, describe, it, expect, beforeAll } from 'bun:test';
 import { generateKeypair } from 'snstr';
 import { NostrEvent } from '../utils/index.js';
 
 // Mock the pool to prevent real WebSocket connections
 const mockPool = {
-  close: jest.fn(),
-  publish: jest.fn().mockReturnValue([
+  close: mock(() => {}),
+  publish: mock(() => [
     Promise.resolve({ success: true }),
     Promise.resolve({ success: true })
   ])
 };
 
 // Mock the pool module directly
-jest.mock('../utils/pool.js', () => ({
-  getFreshPool: jest.fn(() => mockPool)
+mock.module('../utils/pool.js', () => ({
+  getFreshPool: mock(() => mockPool)
 }));
 
 // Now import the functions that use the mocked module
-import { 
-  formatProfile, 
+import {
+  formatProfile,
   formatNote,
-  postAnonymousNote,
   createNote,
   signNote,
   publishNote
@@ -28,7 +27,7 @@ import {
 
 describe('Note Tools Functions', () => {
   let testKeys: { publicKey: string; privateKey: string };
-  
+
   beforeAll(async () => {
     testKeys = await generateKeypair();
   });
@@ -55,7 +54,7 @@ describe('Note Tools Functions', () => {
       };
 
       const formatted = formatProfile(profileEvent);
-      
+
       expect(formatted).toContain('Name: Test User');
       expect(formatted).toContain('Display Name: Tester');
       expect(formatted).toContain('About: A test profile');
@@ -80,7 +79,7 @@ describe('Note Tools Functions', () => {
       };
 
       const formatted = formatProfile(profileEvent);
-      
+
       expect(formatted).toContain('Name: Minimal User');
       expect(formatted).toContain('Display Name: Minimal User'); // Falls back to name
       expect(formatted).toContain('About: No about information');
@@ -99,7 +98,7 @@ describe('Note Tools Functions', () => {
       };
 
       const formatted = formatProfile(profileEvent);
-      
+
       expect(formatted).toContain('Name: Unknown');
       expect(formatted).toContain('Display Name: Unknown');
     });
@@ -123,7 +122,7 @@ describe('Note Tools Functions', () => {
       };
 
       const formatted = formatNote(noteEvent);
-      
+
       expect(formatted).toContain('ID: note123');
       expect(formatted).toContain('Content: This is a test note #nostr');
       expect(formatted).toContain('Created:');
@@ -147,14 +146,14 @@ describe('Note Tools Functions', () => {
       expect(result.success).toBe(true);
       expect(result.noteEvent).toBeDefined();
       expect(result.publicKey).toBe(testKeys.publicKey);
-      
+
       const note = result.noteEvent;
       expect(note.kind).toBe(1);
       expect(note.content).toBe('Hello Nostr!');
       expect(note.tags).toEqual([['t', 'greeting']]);
       expect(note.pubkey).toBe(testKeys.publicKey);
       expect(note.created_at).toBeDefined();
-      
+
       // Should not have id or sig yet
       expect(note.id).toBeUndefined();
       expect(note.sig).toBeUndefined();
@@ -201,7 +200,7 @@ describe('Note Tools Functions', () => {
 
       expect(signResult.success).toBe(true);
       expect(signResult.signedNote).toBeDefined();
-      
+
       const signed = signResult.signedNote;
       expect(signed.id).toBeDefined();
       expect(signed.sig).toBeDefined();
@@ -211,7 +210,7 @@ describe('Note Tools Functions', () => {
 
     it('should reject mismatched keys', async () => {
       const otherKeys = await generateKeypair();
-      
+
       // Create note with one key
       const createResult = await createNote(
         testKeys.privateKey,

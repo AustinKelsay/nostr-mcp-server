@@ -1,0 +1,4 @@
+[test]
+preload = ["./bun.setup.ts"]
+timeout = 30000
+root = "./__tests__"

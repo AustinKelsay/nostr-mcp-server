@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { decode } from "light-bolt11-decoder";
 import { decode as nip19decode, generateKeypair, createEvent, getEventHash, signEvent } from "snstr";
-import fetch from "node-fetch";
 import {
   NostrEvent,
   NostrFilter,

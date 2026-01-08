@@ -1,4 +1,4 @@
-import { jest } from '@jest/globals';
+import { describe, test, expect, mock } from 'bun:test';
 
 // Define a simple profile type for testing
 type NostrProfile = {
@@ -23,7 +23,7 @@ type ZapReceipt = {
 };
 
 // Mock the formatProfile function
-const mockFormatProfile = jest.fn((profile: NostrProfile) => {
+const mockFormatProfile = mock((profile: NostrProfile) => {
   const content = typeof profile.content === 'string' 
     ? JSON.parse(profile.content) 
     : profile.content;

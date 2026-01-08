@@ -1,4 +1,4 @@
-import { jest } from '@jest/globals';
+import { describe, it, test, expect } from 'bun:test';
 
 // Define types for testing
 type Profile = {

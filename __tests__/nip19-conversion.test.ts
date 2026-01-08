@@ -1,4 +1,4 @@
-import { jest } from '@jest/globals';
+import { describe, it, expect, beforeAll } from 'bun:test';
 import { convertNip19, analyzeNip19 } from '../utils/nip19-tools.js';
 import { generateKeypair, encodePublicKey, encodePrivateKey, encodeNoteId, encodeProfile, encodeEvent, encodeAddress } from 'snstr';
 

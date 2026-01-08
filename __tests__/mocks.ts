@@ -1,5 +1,5 @@
 // Mock Nostr events and utility functions for testing
-import { jest } from '@jest/globals';
+import { mock } from 'bun:test';
 
 export const MOCK_HEX_PUBKEY = '7e7e9c42a91bfef19fa929e5fda1b72e0ebc1a4c1141673e2794234d86addf4e';
 export const MOCK_NPUB = 'npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6';
@@ -72,13 +72,13 @@ export const mockZapReceipt = {
 
 // Mock pool functions
 export const mockPool = {
-  get: jest.fn(),
-  querySync: jest.fn(),
-  close: jest.fn()
+  get: mock(() => null),
+  querySync: mock(() => []),
+  close: mock(() => Promise.resolve())
 };
 
 // Mock for getFreshPool function
-export const getFreshPoolMock = jest.fn().mockReturnValue(mockPool);
+export const getFreshPoolMock = mock(() => mockPool);
 
 // Mock response for lightning service for anonymous zaps
 export const mockLightningServiceResponse = {
