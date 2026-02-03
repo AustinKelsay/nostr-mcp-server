@@ -2,6 +2,7 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { z } from "zod";
 import WebSocket from "ws";
 import {
   NostrEvent,
@@ -221,6 +222,70 @@ server.tool(
       };
     } finally {
       // Clean up any subscriptions and close the pool
+      await pool.close();
+    }
+  }
+);
+
+server.tool(
+  "getGlobalNotes",
+  "Get the latest text notes (kind 1) from the entire network (Global Feed)",
+  {
+    limit: z.number().min(1).max(50).default(10).describe("Number of posts to fetch"),
+    relays: z.array(z.string()).optional().describe("Optional list of relays to query"),
+  },
+  async ({ limit, relays }) => {
+    const relaysToUse = relays || DEFAULT_RELAYS;
+    // Create a fresh pool for this request
+    const pool = getFreshPool(relaysToUse);
+    
+    try {
+      console.error(`Fetching global feed from: ${relaysToUse.join(", ")}`);
+      
+      // Query for text notes (Kind 1) WITHOUT author filter
+      const notes = await pool.querySync(
+        relaysToUse,
+        {
+          kinds: [KINDS.Text], // Kind 1
+          limit,
+        } as NostrFilter,
+        { timeout: QUERY_TIMEOUT }
+      );
+      
+      if (!notes || notes.length === 0) {
+        return {
+          content: [{ type: "text", text: "No posts found on specified relays." }],
+        };
+      }
+      
+      // Sort from newest to oldest
+      notes.sort((a, b) => b.created_at - a.created_at);
+      
+      // Format notes
+      const formattedNotes = notes.map(note => {
+        const created = new Date(note.created_at * 1000).toLocaleString();
+        return `Author: ${formatPubkey(note.pubkey)}\nDate: ${created}\nContent: ${note.content}\n---`;
+      }).join("\n");
+      
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Latest ${notes.length} posts from global:\n\n${formattedNotes}`,
+          },
+        ],
+      };
+    } catch (error) {
+      console.error("Error fetching global feed:", error);
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+          },
+        ],
+      };
+    } finally {
       await pool.close();
     }
   }
