@@ -25,10 +25,10 @@ This server implements 17 tools for interacting with the Nostr network:
 9. `updateProfile`: Update an existing Nostr profile with new metadata
 
 ### Note Creation & Publishing Tools
-10. `createNote`: Create unsigned kind 1 note events with specified content and tags
-11. `signNote`: Sign note events with a private key, generating cryptographically valid signatures
-12. `publishNote`: Publish signed notes to specified Nostr relays
-13. `postNote`: All-in-one authenticated note posting using an existing private key (nsec/hex)
+10. `prepareNoteEvent`: Create unsigned kind 1 note events with specified content and tags (Step 1 of manual flow)
+11. `signNote`: Sign note events with a private key, generating cryptographically valid signatures (Step 2 of manual flow)
+12. `publishNote`: Publish signed notes to specified Nostr relays (Step 3 of manual flow)
+13. `postNote`: All-in-one authenticated note posting using an existing private key (Recommended for simple posting)
 
 ### Anonymous Tools
 14. `sendAnonymousZap`: Prepare an anonymous zap to a profile or event, generating a lightning invoice for payment
@@ -238,7 +238,7 @@ Once configured, you can ask Claude to use the Nostr tools by making requests li
 - "Update my profile with picture 'https://example.com/avatar.jpg' and website 'https://alice.dev'"
 
 ### Note Creation & Publishing
-- "Create a note event with content 'Hello Nostr!' and tags #intro #nostr"
+- "Prepare a note event with content 'Hello Nostr!' and tags #intro #nostr"
 - "Sign this note event with my private key nsec1xyz..."
 - "Publish this signed note to wss://relay.damus.io and wss://nos.lol"
 - "Post a note saying 'GM Nostr! ☀️' using my private key nsec1xyz..."
@@ -318,8 +318,8 @@ Examples:
 ### Individual Note Operations
 For advanced users who need granular control over the note creation process:
 
-- **`createNote`**: Creates unsigned note events with your content and tags
-- **`signNote`**: Signs note events with your private key, generating cryptographically valid signatures
+- **`prepareNoteEvent`**: Creates unsigned note events with your content and tags
+- **`signNote`**: Signs note events with your private key
 - **`publishNote`**: Publishes signed notes to your chosen relays
 
 This modular approach allows for:

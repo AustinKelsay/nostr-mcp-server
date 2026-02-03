@@ -185,7 +185,6 @@ export function parseZapRequestData(zapReceipt: NostrEvent): ZapRequestData | un
     
     return zapRequestData;
   } catch (error) {
-    console.error("Error parsing zap request data:", error);
     return undefined;
   }
 }
@@ -205,7 +204,6 @@ export function decodeBolt11FromZap(zapReceipt: NostrEvent): any | undefined {
     
     return decodedInvoice;
   } catch (error) {
-    console.error("Error decoding bolt11 invoice:", error);
     return undefined;
   }
 }
@@ -230,7 +228,6 @@ export function getAmountFromDecodedInvoice(decodedInvoice: any): number | undef
     
     return amountSats;
   } catch (error) {
-    console.error("Error extracting amount from decoded invoice:", error);
     return undefined;
   }
 }
@@ -339,7 +336,6 @@ export function determineZapDirection(zapReceipt: ZapReceipt, pubkey: string): Z
       return 'unknown';
     }
   } catch (error) {
-    console.error("Error determining zap direction:", error);
     return 'unknown';
   }
 }
@@ -383,7 +379,6 @@ export function processZapReceipt(zapReceipt: ZapReceipt, pubkey: string): Cache
       targetCoordinate
     });
   } catch (error) {
-    console.error("Error processing zap receipt:", error);
     // Still cache the basic zap with unknown direction
     return zapCache.add(zapReceipt, { direction: 'unknown' });
   }
@@ -508,7 +503,6 @@ export function formatZapReceipt(zap: NostrEvent, pubkeyContext?: string): strin
     
     return lines.join("\n");
   } catch (error) {
-    console.error("Error formatting zap receipt:", error);
     return "Error formatting zap receipt";
   }
 }
@@ -583,7 +577,6 @@ export async function decodeEventId(id: string): Promise<{ type: string, eventId
           };
         }
       } catch (decodeError) {
-        console.error("Error decoding event identifier:", decodeError);
         return null;
       }
     }
@@ -591,7 +584,6 @@ export async function decodeEventId(id: string): Promise<{ type: string, eventId
     // Not a valid event identifier format
     return null;
   } catch (error) {
-    console.error("Error decoding event identifier:", error);
     return null;
   }
 }
@@ -638,7 +630,6 @@ function extractLnurlMetadata(lnurlData: LnurlPayResponse): { payeeName?: string
     
     return { payeeName, payeeEmail };
   } catch (error) {
-    console.error("Error parsing LNURL metadata:", error);
     return {};
   }
 }

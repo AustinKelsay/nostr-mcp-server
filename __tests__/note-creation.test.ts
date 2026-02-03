@@ -1,21 +1,21 @@
 import { describe, it, expect } from 'bun:test';
-import { createNote, signNote, publishNote } from '../note/note-tools.js';
+import { prepareNoteEvent, signNote, publishNote } from '../note/note-tools.js';
 import { createKeypair } from '../profile/profile-tools.js';
 import { schnorr } from '@noble/curves/secp256k1';
 
 describe('Note Creation Tools', () => {
-  describe('createNote', () => {
+  describe('prepareNoteEvent', () => {
     it('should create a valid unsigned note event', async () => {
       const { privateKey } = await createKeypair('hex');
       
-      const result = await createNote(
+      const result = await prepareNoteEvent(
         privateKey!,
         'Hello Nostr world!',
         [['t', 'test']]
       );
       
       expect(result.success).toBe(true);
-      expect(result.message).toContain('created successfully');
+      expect(result.message).toContain('prepared successfully');
       expect(result.noteEvent).toBeDefined();
       expect(result.publicKey).toBeDefined();
       
@@ -36,7 +36,7 @@ describe('Note Creation Tools', () => {
     it('should create a note with no tags', async () => {
       const { privateKey } = await createKeypair('hex');
       
-      const result = await createNote(
+      const result = await prepareNoteEvent(
         privateKey!,
         'Simple note without tags'
       );
@@ -48,7 +48,7 @@ describe('Note Creation Tools', () => {
     it('should handle nsec format private keys', async () => {
       const { nsec } = await createKeypair('npub');
       
-      const result = await createNote(
+      const result = await prepareNoteEvent(
         nsec!,
         'Note with nsec key'
       );
@@ -59,13 +59,13 @@ describe('Note Creation Tools', () => {
     });
 
     it('should fail with invalid private key', async () => {
-      const result = await createNote(
+      const result = await prepareNoteEvent(
         'invalid_private_key',
         'This should fail'
       );
       
       expect(result.success).toBe(false);
-      expect(result.message).toContain('Error creating note');
+      expect(result.message).toContain('Error preparing note event');
     });
   });
 
@@ -74,7 +74,7 @@ describe('Note Creation Tools', () => {
       const { privateKey } = await createKeypair('hex');
       
       // First create a note
-      const createResult = await createNote(
+      const createResult = await prepareNoteEvent(
         privateKey!,
         'Note to be signed',
         [['hashtag', 'test']]
@@ -113,7 +113,7 @@ describe('Note Creation Tools', () => {
       const { privateKey: privateKey2 } = await createKeypair('hex');
       
       // Create note with first key
-      const createResult = await createNote(
+      const createResult = await prepareNoteEvent(
         privateKey1!,
         'Note created with key 1'
       );
@@ -134,7 +134,7 @@ describe('Note Creation Tools', () => {
       const { nsec, npub } = await createKeypair('npub');
       
       // Create note using nsec
-      const createResult = await createNote(
+      const createResult = await prepareNoteEvent(
         nsec!,
         'Note with nsec'
       );
@@ -157,7 +157,7 @@ describe('Note Creation Tools', () => {
       const { privateKey } = await createKeypair('hex');
       
       // Create and sign a note
-      const createResult = await createNote(privateKey!, 'Test note');
+      const createResult = await prepareNoteEvent(privateKey!, 'Test note');
       const signResult = await signNote(privateKey!, createResult.noteEvent);
       
       expect(createResult.success).toBe(true);
@@ -178,7 +178,7 @@ describe('Note Creation Tools', () => {
       const { privateKey } = await createKeypair('hex');
       
       // Create and sign a note
-      const createResult = await createNote(privateKey!, 'Valid note');
+      const createResult = await prepareNoteEvent(privateKey!, 'Valid note');
       const signResult = await signNote(privateKey!, createResult.noteEvent);
       
       expect(createResult.success).toBe(true);
@@ -201,7 +201,7 @@ describe('Note Creation Tools', () => {
       const { privateKey } = await createKeypair('hex');
       
       // Step 1: Create note
-      const createResult = await createNote(
+      const createResult = await prepareNoteEvent(
         privateKey!,
         'Complete workflow test',
         [['t', 'workflow'], ['client', 'test']]

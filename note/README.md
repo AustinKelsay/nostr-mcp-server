@@ -16,7 +16,7 @@ This directory contains tools for working with Nostr notes, including reading, c
 - **Input Flexibility**: Support for both hex and npub formatted public keys
 
 ### Note Creation & Publishing
-- **Modular Note Creation**: Create unsigned note events with `createNote`
+- **Modular Note Creation**: Prepare unsigned note events with `prepareNoteEvent`
 - **Cryptographic Signing**: Sign note events with private keys using `signNote`
 - **Relay Publishing**: Publish signed notes to specified relays with `publishNote`
 - **Anonymous Posting**: Create anonymous notes with one-time keypairs using snstr's secure key generation
@@ -36,14 +36,14 @@ This directory contains tools for working with Nostr notes, including reading, c
 import { 
   formatProfile, 
   formatNote,
-  createNote,
+  prepareNoteEvent,
   signNote,
   publishNote,
   postAnonymousNote,
   getProfileToolConfig, 
   getKind1NotesToolConfig,
   getLongFormNotesToolConfig,
-  createNoteToolConfig,
+  prepareNoteEventToolConfig,
   signNoteToolConfig,
   publishNoteToolConfig
 } from "./note/note-tools.js";
@@ -55,7 +55,7 @@ const profileText = formatProfile(profileEvent);
 const noteText = formatNote(noteEvent);
 
 // Create, sign, and publish a note (modular approach)
-const createResult = await createNote(privateKey, "Hello Nostr!", [["t", "intro"]]);
+const createResult = await prepareNoteEvent(privateKey, "Hello Nostr!", [["t", "intro"]]);
 const signResult = await signNote(privateKey, createResult.noteEvent);
 const publishResult = await publishNote(signResult.signedNote, relays);
 
@@ -64,9 +64,9 @@ const anonResult = await postAnonymousNote("Anonymous message", relays, tags);
 
 // Tool config schemas are exported for use with MCP
 const noteCreationTool = server.tool(
-  "createNote",
-  "Create a new kind 1 note event",
-  createNoteToolConfig,
+  "prepareNoteEvent",
+  "Prepare a new kind 1 note event (unsigned)",
+  prepareNoteEventToolConfig,
   async (params) => {
     // Implementation
   }
@@ -83,7 +83,7 @@ The module exports configuration schemas for Model Context Protocol tools:
 - `getLongFormNotesToolConfig`: Schema for the getLongFormNotes tool
 
 ### Note Creation Tools
-- `createNoteToolConfig`: Schema for creating unsigned note events
+- `prepareNoteEventToolConfig`: Schema for creating unsigned note events
 - `signNoteToolConfig`: Schema for signing note events with private keys
 - `publishNoteToolConfig`: Schema for publishing signed notes to relays
 

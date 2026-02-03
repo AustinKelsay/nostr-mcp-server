@@ -33,10 +33,10 @@ import {
   getLongFormNotesToolConfig,
   postAnonymousNoteToolConfig,
   postAnonymousNote,
-  createNote,
+  prepareNoteEvent,
   signNote,
   publishNote,
-  createNoteToolConfig,
+  prepareNoteEventToolConfig,
   signNoteToolConfig,
   publishNoteToolConfig
 } from "./note/note-tools.js";
@@ -1417,15 +1417,15 @@ server.tool(
 
 // Register note creation and publishing tools
 server.tool(
-  "createNote",
-  "Create a new kind 1 note event (unsigned)",
-  createNoteToolConfig,
+  "prepareNoteEvent",
+  "Prepare a new kind 1 note event (unsigned). Use this only if you need to manually inspect the event before signing. For direct posting, use 'postNote' instead.",
+  prepareNoteEventToolConfig,
   async ({ privateKey, content, tags }) => {
     try {
-      const result = await createNote(privateKey, content, tags);
+      const result = await prepareNoteEvent(privateKey, content, tags);
       
       if (result.success) {
-        let response = `Note event created successfully!\n\n`;
+        let response = `Note event prepared successfully!\n\n`;
         response += `${result.message}\n`;
         if (result.publicKey) {
           response += `Author: ${formatPubkey(result.publicKey)}\n`;
@@ -1450,19 +1450,19 @@ server.tool(
           content: [
             {
               type: "text",
-              text: `Failed to create note: ${result.message}`,
+              text: `Failed to prepare note event: ${result.message}`,
             },
           ],
         };
       }
     } catch (error) {
-      console.error("Error in createNote tool:", error);
+      console.error("Error in prepareNoteEvent tool:", error);
       
       return {
         content: [
           {
             type: "text",
-            text: `Error creating note: ${error instanceof Error ? error.message : "Unknown error"}`,
+            text: `Error preparing note event: ${error instanceof Error ? error.message : "Unknown error"}`,
           },
         ],
       };

@@ -34,10 +34,10 @@ export const postAnonymousNoteToolConfig = {
   tags: z.array(z.array(z.string())).optional().describe("Optional tags to include with the note"),
 };
 
-// Schema for createNote tool
-export const createNoteToolConfig = {
-  privateKey: z.string().describe("Private key to sign the note with (hex format or nsec format)"),
-  content: z.string().describe("Content of the note to create"),
+// Schema for prepareNoteEvent tool
+export const prepareNoteEventToolConfig = {
+  privateKey: z.string().describe("Private key to derive the public key from (hex format or nsec format). The private key is NOT used to sign yet, only to generate the correct pubkey field."),
+  content: z.string().describe("Content of the note to prepare"),
   tags: z.array(z.array(z.string())).optional().describe("Optional tags to include with the note"),
 };
 
@@ -75,7 +75,7 @@ export function formatProfile(profile: NostrEvent): string {
   try {
     metadata = profile.content ? JSON.parse(profile.content) : {};
   } catch (e) {
-    console.error("Error parsing profile metadata:", e);
+    // Silently handle parsing errors and use empty metadata
   }
   
   return [
@@ -206,9 +206,10 @@ function getPublicKeyFromPrivate(privateKey: string): string {
 }
 
 /**
- * Create a new kind 1 note event (unsigned)
+ * Prepare a new kind 1 note event (unsigned)
+ * This is Step 1 of the manual workflow: Prepare -> Sign -> Publish
  */
-export async function createNote(
+export async function prepareNoteEvent(
   privateKey: string,
   content: string,
   tags: string[][] = []
@@ -229,14 +230,14 @@ export async function createNote(
     
     return {
       success: true,
-      message: 'Note event created successfully (unsigned)',
+      message: 'Note event prepared successfully (unsigned). ready for signing.',
       noteEvent: noteTemplate,
       publicKey: publicKey,
     };
   } catch (error) {
     return {
       success: false,
-      message: `Error creating note: ${error instanceof Error ? error.message : "Unknown error"}`,
+      message: `Error preparing note event: ${error instanceof Error ? error.message : "Unknown error"}`,
     };
   }
 }

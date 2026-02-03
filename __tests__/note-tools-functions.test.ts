@@ -20,7 +20,7 @@ mock.module('../utils/pool.js', () => ({
 import {
   formatProfile,
   formatNote,
-  createNote,
+  prepareNoteEvent,
   signNote,
   publishNote
 } from '../note/note-tools.js';
@@ -141,9 +141,9 @@ describe('Note Tools Functions', () => {
     });
   });
 
-  describe('createNote', () => {
+  describe('prepareNoteEvent', () => {
     it('should create a valid unsigned note', async () => {
-      const result = await createNote(
+      const result = await prepareNoteEvent(
         testKeys.privateKey,
         'Hello Nostr!',
         [['t', 'greeting']]
@@ -167,7 +167,7 @@ describe('Note Tools Functions', () => {
 
     it('should handle nsec format', async () => {
       const nsec = 'nsec1vl029mgpspedva04g90vltkh6fvh240zqtv9k0t9af8935ke9laqsnlfe5';
-      const result = await createNote(
+      const result = await prepareNoteEvent(
         nsec,
         'Note with nsec'
       );
@@ -177,20 +177,20 @@ describe('Note Tools Functions', () => {
     });
 
     it('should handle invalid private key', async () => {
-      const result = await createNote(
+      const result = await prepareNoteEvent(
         'invalid_key',
         'This should fail'
       );
 
       expect(result.success).toBe(false);
-      expect(result.message).toContain('Error creating note');
+      expect(result.message).toContain('Error preparing note event');
     });
   });
 
   describe('signNote', () => {
     it('should sign a note correctly', async () => {
       // First create a note
-      const createResult = await createNote(
+      const createResult = await prepareNoteEvent(
         testKeys.privateKey,
         'Note to sign',
         [['t', 'test']]
@@ -218,7 +218,7 @@ describe('Note Tools Functions', () => {
       const otherKeys = await generateKeypair();
 
       // Create note with one key
-      const createResult = await createNote(
+      const createResult = await prepareNoteEvent(
         testKeys.privateKey,
         'Note with key 1'
       );
@@ -236,7 +236,7 @@ describe('Note Tools Functions', () => {
 
   describe('publishNote', () => {
     it('should handle no relays', async () => {
-      const createResult = await createNote(testKeys.privateKey, 'Test');
+      const createResult = await prepareNoteEvent(testKeys.privateKey, 'Test');
       const signResult = await signNote(testKeys.privateKey, createResult.noteEvent);
 
       const publishResult = await publishNote(
