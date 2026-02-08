@@ -3,65 +3,10 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import WebSocket from "ws";
-import {
-  NostrEvent,
-  NostrFilter,
-  KINDS,
-  DEFAULT_RELAYS,
-  QUERY_TIMEOUT,
-  getFreshPool,
-  npubToHex,
-  formatPubkey
-} from "./utils/index.js";
-import {
-  ZapReceipt,
-  formatZapReceipt,
-  processZapReceipt,
-  validateZapReceipt,
-  prepareAnonymousZap,
-  sendAnonymousZapToolConfig,
-  getReceivedZapsToolConfig,
-  getSentZapsToolConfig,
-  getAllZapsToolConfig
-} from "./zap/zap-tools.js";
-import {
-  formatProfile,
-  formatNote,
-  getProfileToolConfig,
-  getKind1NotesToolConfig,
-  getLongFormNotesToolConfig,
-  postAnonymousNoteToolConfig,
-  postAnonymousNote,
-  prepareNoteEvent,
-  signNote,
-  publishNote,
-  prepareNoteEventToolConfig,
-  signNoteToolConfig,
-  publishNoteToolConfig
-} from "./note/note-tools.js";
-import {
-  createKeypair,
-  createProfile,
-  updateProfile,
-  postNote,
-  createKeypairToolConfig,
-  createProfileToolConfig,
-  updateProfileToolConfig,
-  postNoteToolConfig
-} from "./profile/profile-tools.js";
-import {
-  convertNip19,
-  analyzeNip19,
-  convertNip19ToolConfig,
-  analyzeNip19ToolConfig,
-  formatAnalysisResult
-} from "./utils/nip19-tools.js";
+import { spawn, exec as execCallback } from "child_process";
+import { promisify } from "util";
 
-// Set WebSocket implementation for Node.js (Bun has native WebSocket)
-if (typeof globalThis.WebSocket === 'undefined') {
-  (globalThis as any).WebSocket = WebSocket;
-}
+const exec = promisify(execCallback);
 
 // Create server instance
 const server = new McpServer({
@@ -69,1513 +14,621 @@ const server = new McpServer({
   version: "1.0.0",
 });
 
-// Register Nostr tools
-server.tool(
-  "getProfile",
-  "Get a Nostr profile by public key",
-  getProfileToolConfig,
-  async ({ pubkey, relays }, extra) => {
-    // Convert npub to hex if needed
-    const hexPubkey = npubToHex(pubkey);
-    if (!hexPubkey) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: "Invalid public key format. Please provide a valid hex pubkey or npub.",
-          },
-        ],
-      };
+// Helper function to execute clawstr-cli commands
+async function executeClawstrCommand(command: string, args: string[]): Promise<{ success: boolean; output: string; error?: string }> {
+  try {
+    // Join command and arguments
+    const fullCommand = ["clawstr", command, ...args].join(" ");
+    
+    console.error(`Executing: ${fullCommand}`);
+    
+    const { stdout, stderr } = await exec(fullCommand);
+    
+    if (stderr) {
+      console.error(`stderr: ${stderr}`);
+      return { success: false, output: stdout, error: stderr };
     }
     
-    // Generate a friendly display version of the pubkey
-    const displayPubkey = formatPubkey(hexPubkey);
-    
-    const relaysToUse = relays || DEFAULT_RELAYS;
-    // Create a fresh pool for this request
-    const pool = getFreshPool(relaysToUse);
-    
-    try {
-      console.error(`Fetching profile for ${hexPubkey} from ${relaysToUse.join(", ")}`);
-      
-      // Query for profile (kind 0) - snstr handles timeout internally
-      const profile = await pool.get(
-        relaysToUse,
-        {
-          kinds: [KINDS.Metadata],
-          authors: [hexPubkey],
-        } as NostrFilter
-      );
-      
-      if (!profile) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `No profile found for ${displayPubkey}`,
-            },
-          ],
-        };
-      }
-      
-      const formatted = formatProfile(profile);
-      
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Profile for ${displayPubkey}:\n\n${formatted}`,
-          },
-        ],
-      };
-    } catch (error) {
-      console.error("Error fetching profile:", error);
-      
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error fetching profile for ${displayPubkey}: ${error instanceof Error ? error.message : "Unknown error"}`,
-          },
-        ],
-      };
-    } finally {
-      // Clean up any subscriptions and close the pool
-      await pool.close();
-    }
+    return { success: true, output: stdout };
+  } catch (error: any) {
+    console.error(`Error executing clawstr command: ${error.message}`);
+    return { success: false, output: "", error: error.message };
   }
-);
+}
 
+// Tool to initialize a new Clawstr identity
 server.tool(
-  "getKind1Notes",
-  "Get text notes (kind 1) by public key",
-  getKind1NotesToolConfig,
-  async ({ pubkey, limit, relays }, extra) => {
-    // Convert npub to hex if needed
-    const hexPubkey = npubToHex(pubkey);
-    if (!hexPubkey) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: "Invalid public key format. Please provide a valid hex pubkey or npub.",
-          },
-        ],
-      };
-    }
-    
-    // Generate a friendly display version of the pubkey
-    const displayPubkey = formatPubkey(hexPubkey);
-    
-    const relaysToUse = relays || DEFAULT_RELAYS;
-    // Create a fresh pool for this request
-    const pool = getFreshPool(relaysToUse);
-    
-    try {
-      console.error(`Fetching kind 1 notes for ${hexPubkey} from ${relaysToUse.join(", ")}`);
-      
-      // Query for text notes - snstr handles timeout internally
-      const notes = await pool.querySync(
-        relaysToUse,
-        {
-          kinds: [KINDS.Text],
-          authors: [hexPubkey],
-          limit,
-        } as NostrFilter,
-        { timeout: QUERY_TIMEOUT }
-      );
-      
-      if (!notes || notes.length === 0) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `No notes found for ${displayPubkey}`,
-            },
-          ],
-        };
-      }
-      
-      // Sort notes by created_at in descending order (newest first)
-      notes.sort((a, b) => b.created_at - a.created_at);
-      
-      const formattedNotes = notes.map(formatNote).join("\n");
-      
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Found ${notes.length} notes from ${displayPubkey}:\n\n${formattedNotes}`,
-          },
-        ],
-      };
-    } catch (error) {
-      console.error("Error fetching notes:", error);
-      
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error fetching notes for ${displayPubkey}: ${error instanceof Error ? error.message : "Unknown error"}`,
-          },
-        ],
-      };
-    } finally {
-      // Clean up any subscriptions and close the pool
-      await pool.close();
-    }
-  }
-);
-
-server.tool(
-  "getGlobalNotes",
-  "Get the latest text notes (kind 1) from the entire network (Global Feed)",
+  "initIdentity",
+  "Initialize a new Clawstr identity",
   {
-    limit: z.number().min(1).max(50).default(10).describe("Number of posts to fetch"),
-    relays: z.array(z.string()).optional().describe("Optional list of relays to query"),
+    name: z.string().optional().describe("Profile name"),
+    about: z.string().optional().describe("Profile bio"),
   },
-  async ({ limit, relays }) => {
-    const relaysToUse = relays || DEFAULT_RELAYS;
-    // Create a fresh pool for this request
-    const pool = getFreshPool(relaysToUse);
+  async ({ name, about }) => {
+    const args = [];
+    if (name) args.push("--name", name);
+    if (about) args.push("--about", about);
     
-    try {
-      console.error(`Fetching global feed from: ${relaysToUse.join(", ")}`);
-      
-      // Query for text notes (Kind 1) WITHOUT author filter
-      const notes = await pool.querySync(
-        relaysToUse,
-        {
-          kinds: [KINDS.Text], // Kind 1
-          limit,
-        } as NostrFilter,
-        { timeout: QUERY_TIMEOUT }
-      );
-      
-      if (!notes || notes.length === 0) {
-        return {
-          content: [{ type: "text", text: "No posts found on specified relays." }],
-        };
-      }
-      
-      // Sort from newest to oldest
-      notes.sort((a, b) => b.created_at - a.created_at);
-      
-      // Format notes
-      const formattedNotes = notes.map(note => {
-        const created = new Date(note.created_at * 1000).toLocaleString();
-        return `Author: ${formatPubkey(note.pubkey)}\nDate: ${created}\nContent: ${note.content}\n---`;
-      }).join("\n");
-      
+    const result = await executeClawstrCommand("init", args);
+    
+    if (result.success) {
       return {
         content: [
           {
             type: "text",
-            text: `Latest ${notes.length} posts from global:\n\n${formattedNotes}`,
+            text: `Identity initialized successfully:\n\n${result.output}`,
           },
         ],
       };
-    } catch (error) {
-      console.error("Error fetching global feed:", error);
+    } else {
       return {
         content: [
           {
             type: "text",
-            text: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+            text: `Error initializing identity: ${result.error || result.output}`,
           },
         ],
       };
-    } finally {
-      await pool.close();
+    }
+  }
+);
+
+// Tool to display current identity
+server.tool(
+  "showIdentity",
+  "Display your current Clawstr identity",
+  {
+    json: z.boolean().optional().describe("Output as JSON"),
+  },
+  async ({ json }) => {
+    const args = json ? ["--json"] : [];
+    
+    const result = await executeClawstrCommand("whoami", args);
+    
+    if (result.success) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Current identity:\n\n${result.output}`,
+          },
+        ],
+      };
+    } else {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error showing identity: ${result.error || result.output}`,
+          },
+        ],
+      };
+    }
+  }
+);
+
+// Tool to post to a subclaw
+server.tool(
+  "postToSubclaw",
+  "Post to a Clawstr subclaw community",
+  {
+    subclaw: z.string().describe("The subclaw to post to"),
+    content: z.string().describe("The content to post"),
+    relays: z.array(z.string()).optional().describe("Relay URLs to publish to"),
+  },
+  async ({ subclaw, content, relays }) => {
+    const args = [subclaw, content];
+    if (relays && relays.length > 0) {
+      args.push("--relay", ...relays);
+    }
+    
+    const result = await executeClawstrCommand("post", args);
+    
+    if (result.success) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Posted successfully:\n\n${result.output}`,
+          },
+        ],
+      };
+    } else {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error posting: ${result.error || result.output}`,
+          },
+        ],
+      };
+    }
+  }
+);
+
+// Tool to reply to an event
+server.tool(
+  "replyToEvent",
+  "Reply to an existing Nostr event",
+  {
+    eventRef: z.string().describe("Reference to the event to reply to"),
+    content: z.string().describe("The reply content"),
+    relays: z.array(z.string()).optional().describe("Relay URLs to publish to"),
+  },
+  async ({ eventRef, content, relays }) => {
+    const args = [eventRef, content];
+    if (relays && relays.length > 0) {
+      args.push("--relay", ...relays);
+    }
+    
+    const result = await executeClawstrCommand("reply", args);
+    
+    if (result.success) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Reply posted successfully:\n\n${result.output}`,
+          },
+        ],
+      };
+    } else {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error replying: ${result.error || result.output}`,
+          },
+        ],
+      };
+    }
+  }
+);
+
+// Tool to upvote an event
+server.tool(
+  "upvoteEvent",
+  "Upvote an event",
+  {
+    eventRef: z.string().describe("Reference to the event to upvote"),
+    relays: z.array(z.string()).optional().describe("Relay URLs to publish to"),
+  },
+  async ({ eventRef, relays }) => {
+    const args = [eventRef];
+    if (relays && relays.length > 0) {
+      args.push("--relay", ...relays);
+    }
+    
+    const result = await executeClawstrCommand("upvote", args);
+    
+    if (result.success) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Upvoted successfully:\n\n${result.output}`,
+          },
+        ],
+      };
+    } else {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error upvoting: ${result.error || result.output}`,
+          },
+        ],
+      };
+    }
+  }
+);
+
+// Tool to downvote an event
+server.tool(
+  "downvoteEvent",
+  "Downvote an event",
+  {
+    eventRef: z.string().describe("Reference to the event to downvote"),
+    relays: z.array(z.string()).optional().describe("Relay URLs to publish to"),
+  },
+  async ({ eventRef, relays }) => {
+    const args = [eventRef];
+    if (relays && relays.length > 0) {
+      args.push("--relay", ...relays);
+    }
+    
+    const result = await executeClawstrCommand("downvote", args);
+    
+    if (result.success) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Downvoted successfully:\n\n${result.output}`,
+          },
+        ],
+      };
+    } else {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error downvoting: ${result.error || result.output}`,
+          },
+        ],
+      };
+    }
+  }
+);
+
+// Tool to send a Lightning zap
+server.tool(
+  "sendZap",
+  "Send a Lightning zap to a user (amount in sats)",
+  {
+    recipient: z.string().describe("Recipient of the zap"),
+    amount: z.number().describe("Amount in sats"),
+    comment: z.string().optional().describe("Add a comment to the zap"),
+    event: z.string().optional().describe("Zap a specific event (note1/nevent1/hex)"),
+    relays: z.array(z.string()).optional().describe("Relay URLs for zap receipt"),
+  },
+  async ({ recipient, amount, comment, event, relays }) => {
+    const args = [recipient, amount.toString()];
+    if (comment) {
+      args.push("--comment", comment);
+    }
+    if (event) {
+      args.push("--event", event);
+    }
+    if (relays && relays.length > 0) {
+      args.push("--relay", ...relays);
+    }
+    
+    const result = await executeClawstrCommand("zap", args);
+    
+    if (result.success) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Zap sent successfully:\n\n${result.output}`,
+          },
+        ],
+      };
+    } else {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error sending zap: ${result.error || result.output}`,
+          },
+        ],
+      };
+    }
+  }
+);
+
+// Tool to view notifications
+server.tool(
+  "viewNotifications",
+  "View notifications (mentions, replies, reactions, zaps)",
+  {
+    limit: z.number().min(1).max(100).default(20).describe("Number of notifications to fetch"),
+    relays: z.array(z.string()).optional().describe("Relay URLs to query"),
+    json: z.boolean().optional().describe("Output as JSON"),
+  },
+  async ({ limit, relays, json }) => {
+    const args = ["--limit", limit.toString()];
+    if (relays && relays.length > 0) {
+      args.push("--relay", ...relays);
+    }
+    if (json) {
+      args.push("--json");
+    }
+    
+    const result = await executeClawstrCommand("notifications", args);
+    
+    if (result.success) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Notifications:\n\n${result.output}`,
+          },
+        ],
+      };
+    } else {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error viewing notifications: ${result.error || result.output}`,
+          },
+        ],
+      };
+    }
+  }
+);
+
+// Tool to show a post with its comments or view subclaw feed
+server.tool(
+  "showContent",
+  "Show a post with comments (note1/nevent1/hex) or view subclaw feed (/c/name or URL)",
+  {
+    input: z.string().describe("Input to show (post reference or subclaw)"),
+    limit: z.number().min(1).max(100).default(50).describe("Number of items to fetch (50 for comments, 15 for feed)"),
+    relays: z.array(z.string()).optional().describe("Relay URLs to query"),
+    json: z.boolean().optional().describe("Output as JSON"),
+  },
+  async ({ input, limit, relays, json }) => {
+    const args = [input, "--limit", limit.toString()];
+    if (relays && relays.length > 0) {
+      args.push("--relay", ...relays);
+    }
+    if (json) {
+      args.push("--json");
+    }
+    
+    const result = await executeClawstrCommand("show", args);
+    
+    if (result.success) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Content:\n\n${result.output}`,
+          },
+        ],
+      };
+    } else {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error showing content: ${result.error || result.output}`,
+          },
+        ],
+      };
+    }
+  }
+);
+
+// Tool to view recent posts
+server.tool(
+  "viewRecentPosts",
+  "View recent posts across all Clawstr subclaws",
+  {
+    limit: z.number().min(1).max(100).default(30).describe("Number of posts to fetch"),
+    relays: z.array(z.string()).optional().describe("Relay URLs to query"),
+    json: z.boolean().optional().describe("Output as JSON"),
+  },
+  async ({ limit, relays, json }) => {
+    const args = ["--limit", limit.toString()];
+    if (relays && relays.length > 0) {
+      args.push("--relay", ...relays);
+    }
+    if (json) {
+      args.push("--json");
+    }
+    
+    const result = await executeClawstrCommand("recent", args);
+    
+    if (result.success) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Recent posts:\n\n${result.output}`,
+          },
+        ],
+      };
+    } else {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error viewing recent posts: ${result.error || result.output}`,
+          },
+        ],
+      };
+    }
+  }
+);
+
+// Tool to search for posts
+server.tool(
+  "searchPosts",
+  "Search for posts using NIP-50 search",
+  {
+    query: z.string().describe("Search query"),
+    limit: z.number().min(1).max(100).default(50).describe("Number of results to fetch"),
+    all: z.boolean().optional().describe("Show all content (AI + human) instead of AI-only"),
+    json: z.boolean().optional().describe("Output as JSON"),
+  },
+  async ({ query, limit, all, json }) => {
+    const args = [query, "--limit", limit.toString()];
+    if (all) {
+      args.push("--all");
+    }
+    if (json) {
+      args.push("--json");
+    }
+    
+    const result = await executeClawstrCommand("search", args);
+    
+    if (result.success) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Search results:\n\n${result.output}`,
+          },
+        ],
+      };
+    } else {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error searching posts: ${result.error || result.output}`,
+          },
+        ],
+      };
+    }
+  }
+);
+
+// Wallet-related tools
+server.tool(
+  "initWallet",
+  "Initialize a new Cashu wallet",
+  {
+    mnemonic: z.string().optional().describe("Use existing BIP39 mnemonic"),
+    mint: z.string().optional().describe("Default mint URL"),
+  },
+  async ({ mnemonic, mint }) => {
+    const args = ["init"];
+    if (mnemonic) {
+      args.push("--mnemonic", mnemonic);
+    }
+    if (mint) {
+      args.push("--mint", mint);
+    }
+    
+    const result = await executeClawstrCommand("wallet", args);
+    
+    if (result.success) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Wallet initialized successfully:\n\n${result.output}`,
+          },
+        ],
+      };
+    } else {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error initializing wallet: ${result.error || result.output}`,
+          },
+        ],
+      };
     }
   }
 );
 
 server.tool(
-  "getReceivedZaps",
-  "Get zaps received by a public key",
-  getReceivedZapsToolConfig,
-  async ({ pubkey, limit, relays, validateReceipts, debug }) => {
-    // Convert npub to hex if needed
-    const hexPubkey = npubToHex(pubkey);
-    if (!hexPubkey) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: "Invalid public key format. Please provide a valid hex pubkey or npub.",
-          },
-        ],
-      };
-    }
-    
-    // Generate a friendly display version of the pubkey
-    const displayPubkey = formatPubkey(hexPubkey);
-    
-    const relaysToUse = relays || DEFAULT_RELAYS;
-    // Create a fresh pool for this request
-    const pool = getFreshPool(relaysToUse);
-    
-    try {
-      console.error(`Fetching zaps for ${hexPubkey} from ${relaysToUse.join(", ")}`);
-      
-      // Query for received zaps - snstr handles timeout internally
-      const zaps = await pool.querySync(
-        relaysToUse,
-        {
-          kinds: [KINDS.ZapReceipt],
-          "#p": [hexPubkey], // lowercase 'p' for recipient
-          limit: Math.ceil(limit * 1.5), // Fetch a bit more to account for potential invalid zaps
-        } as NostrFilter,
-        { timeout: QUERY_TIMEOUT }
-      );
-      
-      if (!zaps || zaps.length === 0) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `No zaps found for ${displayPubkey}`,
-            },
-          ],
-        };
-      }
-      
-      if (debug) {
-        console.error(`Retrieved ${zaps.length} raw zap receipts`);
-      }
-      
-      // Process and optionally validate zaps
-      let processedZaps: any[] = [];
-      let invalidCount = 0;
-      
-      for (const zap of zaps) {
-        try {
-          // Process the zap receipt with context of the target pubkey
-          const processedZap = processZapReceipt(zap as ZapReceipt, hexPubkey);
-          
-          // Skip zaps that aren't actually received by this pubkey
-          if (processedZap.direction !== 'received' && processedZap.direction !== 'self') {
-            if (debug) {
-              console.error(`Skipping zap ${zap.id.slice(0, 8)}... with direction ${processedZap.direction}`);
-            }
-            continue;
-          }
-          
-          // Validate if requested
-          if (validateReceipts) {
-            const validationResult = validateZapReceipt(zap);
-            if (!validationResult.valid) {
-              if (debug) {
-                console.error(`Invalid zap receipt ${zap.id.slice(0, 8)}...: ${validationResult.reason}`);
-              }
-              invalidCount++;
-              continue;
-            }
-          }
-          
-          processedZaps.push(processedZap);
-        } catch (error) {
-          if (debug) {
-            console.error(`Error processing zap ${zap.id.slice(0, 8)}...`, error);
-          }
-        }
-      }
-      
-      if (processedZaps.length === 0) {
-        let message = `No valid zaps found for ${displayPubkey}`;
-        if (invalidCount > 0) {
-          message += ` (${invalidCount} invalid zaps were filtered out)`;
-        }
-        
-        return {
-          content: [
-            {
-              type: "text",
-              text: message,
-            },
-          ],
-        };
-      }
-      
-      // Sort zaps by created_at in descending order (newest first)
-      processedZaps.sort((a, b) => b.created_at - a.created_at);
-      
-      // Limit to requested number
-      processedZaps = processedZaps.slice(0, limit);
-      
-      // Calculate total sats received
-      const totalSats = processedZaps.reduce((sum, zap) => sum + (zap.amountSats || 0), 0);
-      
-      const formattedZaps = processedZaps.map(zap => formatZapReceipt(zap, hexPubkey)).join("\n");
-      
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Found ${processedZaps.length} zaps received by ${displayPubkey}.\nTotal received: ${totalSats} sats\n\n${formattedZaps}`,
-          },
-        ],
-      };
-    } catch (error) {
-      console.error("Error fetching zaps:", error);
-      
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error fetching zaps for ${displayPubkey}: ${error instanceof Error ? error.message : "Unknown error"}`,
-          },
-        ],
-      };
-    } finally {
-      // Clean up any subscriptions and close the pool
-      await pool.close();
-    }
+  "walletBalance",
+  "Display wallet balance",
+  {
+    json: z.boolean().optional().describe("Output as JSON"),
   },
-);
-
-server.tool(
-  "getSentZaps",
-  "Get zaps sent by a public key",
-  getSentZapsToolConfig,
-  async ({ pubkey, limit, relays, validateReceipts, debug }) => {
-    // Convert npub to hex if needed
-    const hexPubkey = npubToHex(pubkey);
-    if (!hexPubkey) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: "Invalid public key format. Please provide a valid hex pubkey or npub.",
-          },
-        ],
-      };
+  async ({ json }) => {
+    const args = ["balance"];
+    if (json) {
+      args.push("--json");
     }
     
-    // Generate a friendly display version of the pubkey
-    const displayPubkey = formatPubkey(hexPubkey);
+    const result = await executeClawstrCommand("wallet", args);
     
-    const relaysToUse = relays || DEFAULT_RELAYS;
-    // Create a fresh pool for this request
-    const pool = getFreshPool(relaysToUse);
-    
-    try {
-      console.error(`Fetching sent zaps for ${hexPubkey} from ${relaysToUse.join(", ")}`);
-      
-      // First try the direct and correct approach: query with uppercase 'P' tag (NIP-57)
-      if (debug) console.error("Trying direct query with #P tag...");
-      
-      let potentialSentZaps: NostrEvent[] = [];
-      try {
-        potentialSentZaps = await pool.querySync(
-          relaysToUse,
-          {
-            kinds: [KINDS.ZapReceipt],
-            "#P": [hexPubkey], // uppercase 'P' for sender
-            limit: Math.ceil(limit * 1.5), // Fetch a bit more to account for potential invalid zaps
-          } as NostrFilter,
-          { timeout: QUERY_TIMEOUT }
-        );
-        if (debug) console.error(`Direct #P tag query returned ${potentialSentZaps.length} results`);
-      } catch (e: unknown) {
-        if (debug) console.error(`Direct #P tag query failed: ${e instanceof Error ? e.message : String(e)}`);
-      }
-      
-      // If the direct query didn't return enough results, try the fallback method
-      if (!potentialSentZaps || potentialSentZaps.length < limit) {
-        if (debug) console.error("Direct query yielded insufficient results, trying fallback approach...");
-        
-        // Try a fallback approach - fetch a larger set of zap receipts
-        const additionalZaps = await pool.querySync(
-          relaysToUse,
-          {
-            kinds: [KINDS.ZapReceipt],
-            limit: Math.max(limit * 10, 100), // Get a larger sample
-          } as NostrFilter,
-          { timeout: QUERY_TIMEOUT }
-        );
-        
-        if (debug) {
-          console.error(`Retrieved ${additionalZaps?.length || 0} additional zap receipts to analyze`);
-        }
-        
-        if (additionalZaps && additionalZaps.length > 0) {
-          // Add these to our potential sent zaps
-          potentialSentZaps = [...potentialSentZaps, ...additionalZaps];
-        }
-      }
-      
-      if (!potentialSentZaps || potentialSentZaps.length === 0) {
-          return {
-            content: [
-              {
-                type: "text",
-                text: "No zap receipts found to analyze",
-              },
-            ],
-          };
-        }
-        
-      // Process and filter zaps
-      let processedZaps: any[] = [];
-      let invalidCount = 0;
-      let nonSentCount = 0;
-      
-      if (debug) {
-        console.error(`Processing ${potentialSentZaps.length} potential sent zaps...`);
-      }
-      
-      // Process each zap to determine if it was sent by the target pubkey
-      for (const zap of potentialSentZaps) {
-        try {
-          // Process the zap receipt with context of the target pubkey
-          const processedZap = processZapReceipt(zap as ZapReceipt, hexPubkey);
-          
-          // Skip zaps that aren't sent by this pubkey
-          if (processedZap.direction !== 'sent' && processedZap.direction !== 'self') {
-            if (debug) {
-              console.error(`Skipping zap ${zap.id.slice(0, 8)}... with direction ${processedZap.direction}`);
-            }
-            nonSentCount++;
-            continue;
-          }
-          
-          // Validate if requested
-          if (validateReceipts) {
-            const validationResult = validateZapReceipt(zap);
-            if (!validationResult.valid) {
-              if (debug) {
-                console.error(`Invalid zap receipt ${zap.id.slice(0, 8)}...: ${validationResult.reason}`);
-              }
-              invalidCount++;
-              continue;
-            }
-          }
-          
-          processedZaps.push(processedZap);
-          } catch (error) {
-            if (debug) {
-            console.error(`Error processing zap ${zap.id.slice(0, 8)}...`, error);
-          }
-        }
-      }
-      
-      // Deduplicate by zap ID
-      const uniqueZaps = new Map<string, any>();
-      processedZaps.forEach(zap => uniqueZaps.set(zap.id, zap));
-      processedZaps = Array.from(uniqueZaps.values());
-      
-      if (processedZaps.length === 0) {
-        let message = `No zaps sent by ${displayPubkey} were found.`;
-        if (invalidCount > 0 || nonSentCount > 0) {
-          message += ` (${invalidCount} invalid zaps and ${nonSentCount} non-sent zaps were filtered out)`;
-        }
-        message += " This could be because:\n1. The user hasn't sent any zaps\n2. The zap receipts don't properly contain the sender's pubkey\n3. The relays queried don't have this data";
-        
-        return {
-          content: [
-            {
-              type: "text",
-              text: message,
-            },
-          ],
-        };
-      }
-      
-      // Sort zaps by created_at in descending order (newest first)
-      processedZaps.sort((a, b) => b.created_at - a.created_at);
-      
-      // Limit to requested number
-      processedZaps = processedZaps.slice(0, limit);
-      
-      // Calculate total sats sent
-      const totalSats = processedZaps.reduce((sum, zap) => sum + (zap.amountSats || 0), 0);
-      
-      // For debugging, examine the first zap in detail
-      if (debug && processedZaps.length > 0) {
-        const firstZap = processedZaps[0];
-        console.error("Sample sent zap:", JSON.stringify(firstZap, null, 2));
-      }
-      
-      const formattedZaps = processedZaps.map(zap => formatZapReceipt(zap, hexPubkey)).join("\n");
-      
+    if (result.success) {
       return {
         content: [
           {
             type: "text",
-            text: `Found ${processedZaps.length} zaps sent by ${displayPubkey}.\nTotal sent: ${totalSats} sats\n\n${formattedZaps}`,
+            text: `Wallet balance:\n\n${result.output}`,
           },
         ],
       };
-    } catch (error) {
-      console.error("Error fetching sent zaps:", error);
-      
+    } else {
       return {
         content: [
           {
             type: "text",
-            text: `Error fetching sent zaps for ${displayPubkey}: ${error instanceof Error ? error.message : "Unknown error"}`,
+            text: `Error getting wallet balance: ${result.error || result.output}`,
           },
         ],
       };
-    } finally {
-      // Clean up any subscriptions and close the pool
-      await pool.close();
-    }
-  },
-);
-
-server.tool(
-  "getAllZaps",
-  "Get all zaps (sent and received) for a public key",
-  getAllZapsToolConfig,
-  async ({ pubkey, limit, relays, validateReceipts, debug }) => {
-    // Convert npub to hex if needed
-    const hexPubkey = npubToHex(pubkey);
-    if (!hexPubkey) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: "Invalid public key format. Please provide a valid hex pubkey or npub.",
-          },
-        ],
-      };
-    }
-    
-    // Generate a friendly display version of the pubkey
-    const displayPubkey = formatPubkey(hexPubkey);
-    
-    const relaysToUse = relays || DEFAULT_RELAYS;
-    // Create a fresh pool for this request
-    const pool = getFreshPool(relaysToUse);
-    
-    try {
-      console.error(`Fetching all zaps for ${hexPubkey} from ${relaysToUse.join(", ")}`);
-      
-      // Use a more efficient approach: fetch all potentially relevant zaps in parallel
-      
-      // Prepare all required queries in parallel to reduce total time
-      const fetchPromises = [
-        // 1. Fetch received zaps (lowercase 'p' tag)
-        pool.querySync(
-        relaysToUse,
-        {
-          kinds: [KINDS.ZapReceipt],
-          "#p": [hexPubkey],
-            limit: Math.ceil(limit * 1.5),
-        } as NostrFilter,
-        { timeout: QUERY_TIMEOUT }
-        ),
-        
-        // 2. Fetch sent zaps (uppercase 'P' tag)
-        pool.querySync(
-        relaysToUse,
-        {
-          kinds: [KINDS.ZapReceipt],
-          "#P": [hexPubkey],
-            limit: Math.ceil(limit * 1.5),
-        } as NostrFilter,
-        { timeout: QUERY_TIMEOUT }
-        )
-      ];
-      
-      // Add a general query if we're in debug mode or need more comprehensive results
-      if (debug) {
-        fetchPromises.push(
-          pool.querySync(
-          relaysToUse,
-          {
-            kinds: [KINDS.ZapReceipt],
-              limit: Math.max(limit * 5, 50),
-          } as NostrFilter,
-          { timeout: QUERY_TIMEOUT }
-          )
-        );
-      }
-      
-      // Execute all queries in parallel
-      const results = await Promise.allSettled(fetchPromises);
-      
-      // Collect all zaps from successful queries
-      const allZaps: NostrEvent[] = [];
-      
-      results.forEach((result, index) => {
-        if (result.status === 'fulfilled') {
-          const zaps = result.value as NostrEvent[];
-        if (debug) {
-            const queryTypes = ['Received', 'Sent', 'General'];
-            console.error(`${queryTypes[index]} query returned ${zaps.length} results`);
-          }
-          allZaps.push(...zaps);
-        } else if (debug) {
-          const queryTypes = ['Received', 'Sent', 'General'];
-          console.error(`${queryTypes[index]} query failed:`, result.reason);
-        }
-      });
-      
-      if (allZaps.length === 0) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `No zaps found for ${displayPubkey}. Try specifying different relays that might have the data.`,
-            },
-          ],
-        };
-      }
-      
-      if (debug) {
-        console.error(`Retrieved ${allZaps.length} total zaps before deduplication`);
-      }
-      
-      // Deduplicate by zap ID
-      const uniqueZapsMap = new Map<string, NostrEvent>();
-      allZaps.forEach(zap => uniqueZapsMap.set(zap.id, zap));
-      const uniqueZaps = Array.from(uniqueZapsMap.values());
-      
-      if (debug) {
-        console.error(`Deduplicated to ${uniqueZaps.length} unique zaps`);
-      }
-      
-      // Process each zap to determine its relevance to the target pubkey
-      let processedZaps: any[] = [];
-      let invalidCount = 0;
-      let irrelevantCount = 0;
-      
-      for (const zap of uniqueZaps) {
-        try {
-          // Process the zap with the target pubkey as context
-          const processedZap = processZapReceipt(zap as ZapReceipt, hexPubkey);
-          
-          // Skip zaps that are neither sent nor received by this pubkey
-          if (processedZap.direction === 'unknown') {
-              if (debug) {
-              console.error(`Skipping irrelevant zap ${zap.id.slice(0, 8)}...`);
-            }
-            irrelevantCount++;
-            continue;
-          }
-          
-          // Validate if requested
-          if (validateReceipts) {
-            const validationResult = validateZapReceipt(zap);
-            if (!validationResult.valid) {
-            if (debug) {
-                console.error(`Invalid zap receipt ${zap.id.slice(0, 8)}...: ${validationResult.reason}`);
-            }
-              invalidCount++;
-              continue;
-          }
-          }
-        
-          processedZaps.push(processedZap);
-        } catch (error) {
-        if (debug) {
-            console.error(`Error processing zap ${zap.id.slice(0, 8)}...`, error);
-          }
-        }
-      }
-      
-      if (processedZaps.length === 0) {
-        let message = `No relevant zaps found for ${displayPubkey}.`;
-        if (invalidCount > 0 || irrelevantCount > 0) {
-          message += ` (${invalidCount} invalid zaps and ${irrelevantCount} irrelevant zaps were filtered out)`;
-        }
-        
-        return {
-          content: [
-            {
-              type: "text",
-              text: message,
-            },
-          ],
-        };
-      }
-      
-      // Sort zaps by created_at in descending order (newest first)
-      processedZaps.sort((a, b) => b.created_at - a.created_at);
-      
-      // Calculate statistics: sent, received, and self zaps
-      const sentZaps = processedZaps.filter(zap => zap.direction === 'sent');
-      const receivedZaps = processedZaps.filter(zap => zap.direction === 'received');
-      const selfZaps = processedZaps.filter(zap => zap.direction === 'self');
-      
-      // Calculate total sats
-      const totalSent = sentZaps.reduce((sum, zap) => sum + (zap.amountSats || 0), 0);
-      const totalReceived = receivedZaps.reduce((sum, zap) => sum + (zap.amountSats || 0), 0);
-      const totalSelfZaps = selfZaps.reduce((sum, zap) => sum + (zap.amountSats || 0), 0);
-      
-      // Limit to requested number for display
-      processedZaps = processedZaps.slice(0, limit);
-      
-      // Format the zaps with the pubkey context
-      const formattedZaps = processedZaps.map(zap => formatZapReceipt(zap, hexPubkey)).join("\n");
-      
-      // Prepare summary statistics
-      const summary = [
-        `Zap Summary for ${displayPubkey}:`,
-        `- ${sentZaps.length} zaps sent (${totalSent} sats)`,
-        `- ${receivedZaps.length} zaps received (${totalReceived} sats)`,
-        `- ${selfZaps.length} self-zaps (${totalSelfZaps} sats)`,
-        `- Net balance: ${totalReceived - totalSent} sats`,
-        `\nShowing ${processedZaps.length} most recent zaps:\n`
-      ].join("\n");
-      
-      return {
-        content: [
-          {
-            type: "text",
-            text: `${summary}\n${formattedZaps}`,
-          },
-        ],
-      };
-    } catch (error) {
-      console.error("Error fetching all zaps:", error);
-      
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error fetching all zaps for ${displayPubkey}: ${error instanceof Error ? error.message : "Unknown error"}`,
-          },
-        ],
-      };
-    } finally {
-      // Clean up any subscriptions and close the pool
-      await pool.close();
-    }
-  },
-);
-
-server.tool(
-  "getLongFormNotes",
-  "Get long-form notes (kind 30023) by public key",
-  getLongFormNotesToolConfig,
-  async ({ pubkey, limit, relays }, extra) => {
-    // Convert npub to hex if needed
-    const hexPubkey = npubToHex(pubkey);
-    if (!hexPubkey) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: "Invalid public key format. Please provide a valid hex pubkey or npub.",
-          },
-        ],
-      };
-    }
-    
-    // Generate a friendly display version of the pubkey
-    const displayPubkey = formatPubkey(hexPubkey);
-    
-    const relaysToUse = relays || DEFAULT_RELAYS;
-    // Create a fresh pool for this request
-    const pool = getFreshPool(relaysToUse);
-    
-    try {
-      console.error(`Fetching long-form notes for ${hexPubkey} from ${relaysToUse.join(", ")}`);
-      
-      // Query for long-form notes - snstr handles timeout internally
-      const notes = await pool.querySync(
-        relaysToUse,
-        {
-          kinds: [30023], // NIP-23 long-form content
-          authors: [hexPubkey],
-          limit,
-        } as NostrFilter,
-        { timeout: QUERY_TIMEOUT }
-      );
-      
-      if (!notes || notes.length === 0) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `No long-form notes found for ${displayPubkey}`,
-            },
-          ],
-        };
-      }
-      
-      // Sort notes by created_at in descending order (newest first)
-      notes.sort((a, b) => b.created_at - a.created_at);
-      
-      // Format each note with enhanced metadata
-      const formattedNotes = notes.map(note => {
-        // Extract metadata from tags
-        const title = note.tags.find(tag => tag[0] === "title")?.[1] || "Untitled";
-        const image = note.tags.find(tag => tag[0] === "image")?.[1];
-        const summary = note.tags.find(tag => tag[0] === "summary")?.[1];
-        const publishedAt = note.tags.find(tag => tag[0] === "published_at")?.[1];
-        const identifier = note.tags.find(tag => tag[0] === "d")?.[1];
-        
-        // Format the output
-        const lines = [
-          `Title: ${title}`,
-          `Created: ${new Date(note.created_at * 1000).toLocaleString()}`,
-          publishedAt ? `Published: ${new Date(parseInt(publishedAt) * 1000).toLocaleString()}` : null,
-          image ? `Image: ${image}` : null,
-          summary ? `Summary: ${summary}` : null,
-          identifier ? `Identifier: ${identifier}` : null,
-          `Content:`,
-          note.content,
-          `---`,
-        ].filter(Boolean).join("\n");
-        
-        return lines;
-      }).join("\n\n");
-      
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Found ${notes.length} long-form notes from ${displayPubkey}:\n\n${formattedNotes}`,
-          },
-        ],
-      };
-    } catch (error) {
-      console.error("Error fetching long-form notes:", error);
-      
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error fetching long-form notes for ${displayPubkey}: ${error instanceof Error ? error.message : "Unknown error"}`,
-          },
-        ],
-      };
-    } finally {
-      // Clean up any subscriptions and close the pool
-      await pool.close();
     }
   }
 );
 
 server.tool(
-  "sendAnonymousZap",
-  "Prepare an anonymous zap to a profile or event",
-  sendAnonymousZapToolConfig,
-  async ({ target, amountSats, comment, relays }) => {
-    // Use supplied relays or defaults
-    const relaysToUse = relays || DEFAULT_RELAYS;
+  "receiveCashu",
+  "Receive a Cashu token",
+  {
+    token: z.string().describe("Cashu token to receive"),
+  },
+  async ({ token }) => {
+    const args = ["receive", "cashu", token];
     
-    try {
-      // console.error(`Preparing anonymous zap to ${target} for ${amountSats} sats`);
-      
-      // Prepare the anonymous zap
-      const zapResult = await prepareAnonymousZap(target, amountSats, comment, relaysToUse);
-      
-      if (!zapResult || !zapResult.success) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Failed to prepare anonymous zap: ${zapResult?.message || "Unknown error"}`,
-            },
-          ],
-        };
-      }
-      
+    const result = await executeClawstrCommand("wallet", args);
+    
+    if (result.success) {
       return {
         content: [
           {
             type: "text",
-            text: `Anonymous zap prepared successfully!\n\nAmount: ${amountSats} sats${comment ? `\nComment: "${comment}"` : ""}\nTarget: ${target}\n\nInvoice:\n${zapResult.invoice}\n\nCopy this invoice into your Lightning wallet to pay. After payment, the recipient will receive the zap anonymously.`,
+            text: `Cashu token received successfully:\n\n${result.output}`,
           },
         ],
       };
-    } catch (error) {
-      console.error("Error in sendAnonymousZap tool:", error);
-      
-      let errorMessage = error instanceof Error ? error.message : "Unknown error";
-      
-      // Provide a more helpful message for common errors
-      if (errorMessage.includes("ENOTFOUND") || errorMessage.includes("ETIMEDOUT")) {
-        errorMessage = `Could not connect to the Lightning service. This might be a temporary network issue or the service might be down. Error: ${errorMessage}`;
-      } else if (errorMessage.includes("Timeout")) {
-        errorMessage = "The operation timed out. This might be due to slow relays or network connectivity issues.";
-      }
-      
+    } else {
       return {
         content: [
           {
             type: "text",
-            text: `Error preparing anonymous zap: ${errorMessage}`,
+            text: `Error receiving Cashu token: ${result.error || result.output}`,
           },
         ],
       };
     }
-  },
-);
-
-// Register NIP-19 conversion tools
-server.tool(
-  "convertNip19",
-  "Convert any NIP-19 entity (npub, nsec, note, nprofile, nevent, naddr) to another format",
-  convertNip19ToolConfig,
-  async ({ input, targetType, relays, author, kind, identifier }) => {
-    try {
-      const result = await convertNip19(input, targetType, relays, author, kind, identifier);
-      
-      if (result.success) {
-        let response = `Conversion successful!\n\n`;
-        response += `Original: ${result.originalType} entity\n`;
-        response += `Target: ${targetType}\n`;
-        response += `Result: ${result.result}\n`;
-        
-        if (result.originalType && ['nprofile', 'nevent', 'naddr'].includes(result.originalType)) {
-          response += `\nOriginal entity data:\n${formatAnalysisResult(result.originalType, result.data)}`;
-        }
-        
-        return {
-          content: [
-            {
-              type: "text",
-              text: response,
-            },
-          ],
-        };
-      } else {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Conversion failed: ${result.message}`,
-            },
-          ],
-        };
-      }
-    } catch (error) {
-      console.error("Error in convertNip19 tool:", error);
-      
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error during conversion: ${error instanceof Error ? error.message : "Unknown error"}`,
-          },
-        ],
-      };
-    }
-  },
+  }
 );
 
 server.tool(
-  "analyzeNip19",
-  "Analyze any NIP-19 entity or hex string to understand its type and contents",
-  analyzeNip19ToolConfig,
-  async ({ input }) => {
-    try {
-      const result = await analyzeNip19(input);
-      
-      if (result.success) {
-        let response = `Analysis successful!\n\n`;
-        response += `Type: ${result.type}\n\n`;
-        response += formatAnalysisResult(result.type!, result.data);
-        
-        return {
-          content: [
-            {
-              type: "text",
-              text: response,
-            },
-          ],
-        };
-      } else {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Analysis failed: ${result.message}`,
-            },
-          ],
-        };
-      }
-    } catch (error) {
-      console.error("Error in analyzeNip19 tool:", error);
-      
+  "sendCashu",
+  "Create a Cashu token to send",
+  {
+    amount: z.number().describe("Amount to send"),
+    mint: z.string().optional().describe("Mint URL"),
+  },
+  async ({ amount, mint }) => {
+    const args = ["send", "cashu", amount.toString()];
+    if (mint) {
+      args.push("--mint", mint);
+    }
+    
+    const result = await executeClawstrCommand("wallet", args);
+    
+    if (result.success) {
       return {
         content: [
           {
             type: "text",
-            text: `Error during analysis: ${error instanceof Error ? error.message : "Unknown error"}`,
+            text: `Cashu token created successfully:\n\n${result.output}`,
+          },
+        ],
+      };
+    } else {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error creating Cashu token: ${result.error || result.output}`,
           },
         ],
       };
     }
-  },
-);
-
-server.tool(
-  "postAnonymousNote",
-  "Post an anonymous note to the Nostr network using a temporary keypair",
-  postAnonymousNoteToolConfig,
-  async ({ content, relays, tags }) => {
-    try {
-      const result = await postAnonymousNote(content, relays, tags);
-      
-      if (result.success) {
-        let response = `Anonymous note posted successfully!\n\n`;
-        response += `${result.message}\n`;
-        if (result.noteId) {
-          response += `Note ID: ${result.noteId}\n`;
-        }
-        if (result.publicKey) {
-          response += `Anonymous Author: ${formatPubkey(result.publicKey)}\n`;
-        }
-        response += `Content: "${content}"\n`;
-        if (tags && tags.length > 0) {
-          response += `Tags: ${JSON.stringify(tags)}\n`;
-        }
-        if (relays && relays.length > 0) {
-          response += `Relays: ${relays.join(", ")}\n`;
-        }
-        
-        return {
-          content: [
-            {
-              type: "text",
-              text: response,
-            },
-          ],
-        };
-      } else {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Failed to post anonymous note: ${result.message}`,
-            },
-          ],
-        };
-      }
-    } catch (error) {
-      console.error("Error in postAnonymousNote tool:", error);
-      
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error posting anonymous note: ${error instanceof Error ? error.message : "Unknown error"}`,
-          },
-        ],
-      };
-    }
-  },
-);
-
-// Register profile management tools
-server.tool(
-  "createKeypair",
-  "Generate a new Nostr keypair",
-  createKeypairToolConfig,
-  async ({ format }) => {
-    try {
-      const result = await createKeypair(format);
-      
-      let response = "New Nostr keypair generated:\n\n";
-      
-      if (result.publicKey) {
-        response += `Public Key (hex): ${result.publicKey}\n`;
-      }
-      if (result.privateKey) {
-        response += `Private Key (hex): ${result.privateKey}\n`;
-      }
-      if (result.npub) {
-        response += `Public Key (npub): ${result.npub}\n`;
-      }
-      if (result.nsec) {
-        response += `Private Key (nsec): ${result.nsec}\n`;
-      }
-      
-      response += "\n⚠️ IMPORTANT: Store your private key securely! This is the only copy and cannot be recovered if lost.";
-      
-      return {
-        content: [
-          {
-            type: "text",
-            text: response,
-          },
-        ],
-      };
-    } catch (error) {
-      console.error("Error in createKeypair tool:", error);
-      
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error generating keypair: ${error instanceof Error ? error.message : "Unknown error"}`,
-          },
-        ],
-      };
-    }
-  },
-);
-
-server.tool(
-  "createProfile",
-  "Create a new Nostr profile (kind 0 event)",
-  createProfileToolConfig,
-  async ({ privateKey, name, about, picture, nip05, lud16, lud06, website, relays }) => {
-    try {
-      const profileData = {
-        name,
-        about,
-        picture,
-        nip05,
-        lud16,
-        lud06,
-        website
-      };
-      
-      const result = await createProfile(privateKey, profileData, relays);
-      
-      if (result.success) {
-        let response = `Profile created successfully!\n\n`;
-        response += `${result.message}\n`;
-        if (result.eventId) {
-          response += `Event ID: ${result.eventId}\n`;
-        }
-        if (result.publicKey) {
-          response += `Public Key: ${formatPubkey(result.publicKey)}\n`;
-        }
-        
-        // Show the profile data that was set
-        response += "\nProfile data:\n";
-        if (name) response += `Name: ${name}\n`;
-        if (about) response += `About: ${about}\n`;
-        if (picture) response += `Picture: ${picture}\n`;
-        if (nip05) response += `NIP-05: ${nip05}\n`;
-        if (lud16) response += `Lightning Address: ${lud16}\n`;
-        if (lud06) response += `LNURL: ${lud06}\n`;
-        if (website) response += `Website: ${website}\n`;
-        
-        return {
-          content: [
-            {
-              type: "text",
-              text: response,
-            },
-          ],
-        };
-      } else {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Failed to create profile: ${result.message}`,
-            },
-          ],
-        };
-      }
-    } catch (error) {
-      console.error("Error in createProfile tool:", error);
-      
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error creating profile: ${error instanceof Error ? error.message : "Unknown error"}`,
-          },
-        ],
-      };
-    }
-  },
-);
-
-server.tool(
-  "updateProfile",
-  "Update an existing Nostr profile (kind 0 event)",
-  updateProfileToolConfig,
-  async ({ privateKey, name, about, picture, nip05, lud16, lud06, website, relays }) => {
-    try {
-      const profileData = {
-        name,
-        about,
-        picture,
-        nip05,
-        lud16,
-        lud06,
-        website
-      };
-      
-      const result = await updateProfile(privateKey, profileData, relays);
-      
-      if (result.success) {
-        let response = `Profile updated successfully!\n\n`;
-        response += `${result.message}\n`;
-        if (result.eventId) {
-          response += `Event ID: ${result.eventId}\n`;
-        }
-        if (result.publicKey) {
-          response += `Public Key: ${formatPubkey(result.publicKey)}\n`;
-        }
-        
-        // Show the profile data that was updated
-        response += "\nUpdated profile data:\n";
-        if (name) response += `Name: ${name}\n`;
-        if (about) response += `About: ${about}\n`;
-        if (picture) response += `Picture: ${picture}\n`;
-        if (nip05) response += `NIP-05: ${nip05}\n`;
-        if (lud16) response += `Lightning Address: ${lud16}\n`;
-        if (lud06) response += `LNURL: ${lud06}\n`;
-        if (website) response += `Website: ${website}\n`;
-        
-        return {
-          content: [
-            {
-              type: "text",
-              text: response,
-            },
-          ],
-        };
-      } else {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Failed to update profile: ${result.message}`,
-            },
-          ],
-        };
-      }
-    } catch (error) {
-      console.error("Error in updateProfile tool:", error);
-      
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error updating profile: ${error instanceof Error ? error.message : "Unknown error"}`,
-          },
-        ],
-      };
-    }
-  },
-);
-
-server.tool(
-  "postNote",
-  "Post a note using an existing private key (authenticated posting)",
-  postNoteToolConfig,
-  async ({ privateKey, content, tags, relays }) => {
-    try {
-      const result = await postNote(privateKey, content, tags, relays);
-      
-      if (result.success) {
-        let response = `Note posted successfully!\n\n`;
-        response += `${result.message}\n`;
-        if (result.noteId) {
-          response += `Note ID: ${result.noteId}\n`;
-        }
-        if (result.publicKey) {
-          response += `Author: ${formatPubkey(result.publicKey)}\n`;
-        }
-        response += `Content: "${content}"\n`;
-        if (tags && tags.length > 0) {
-          response += `Tags: ${JSON.stringify(tags)}\n`;
-        }
-        if (relays && relays.length > 0) {
-          response += `Relays: ${relays.join(", ")}\n`;
-        }
-        
-        return {
-          content: [
-            {
-              type: "text",
-              text: response,
-            },
-          ],
-        };
-      } else {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Failed to post note: ${result.message}`,
-            },
-          ],
-        };
-      }
-    } catch (error) {
-      console.error("Error in postNote tool:", error);
-      
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error posting note: ${error instanceof Error ? error.message : "Unknown error"}`,
-          },
-        ],
-      };
-    }
-  },
-);
-
-// Register note creation and publishing tools
-server.tool(
-  "prepareNoteEvent",
-  "Prepare a new kind 1 note event (unsigned). Use this only if you need to manually inspect the event before signing. For direct posting, use 'postNote' instead.",
-  prepareNoteEventToolConfig,
-  async ({ privateKey, content, tags }) => {
-    try {
-      const result = await prepareNoteEvent(privateKey, content, tags);
-      
-      if (result.success) {
-        let response = `Note event prepared successfully!\n\n`;
-        response += `${result.message}\n`;
-        if (result.publicKey) {
-          response += `Author: ${formatPubkey(result.publicKey)}\n`;
-        }
-        response += `Content: "${content}"\n`;
-        if (tags && tags.length > 0) {
-          response += `Tags: ${JSON.stringify(tags)}\n`;
-        }
-        
-        response += `\nNote Event (unsigned):\n${JSON.stringify(result.noteEvent, null, 2)}`;
-        
-        return {
-          content: [
-            {
-              type: "text",
-              text: response,
-            },
-          ],
-        };
-      } else {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Failed to prepare note event: ${result.message}`,
-            },
-          ],
-        };
-      }
-    } catch (error) {
-      console.error("Error in prepareNoteEvent tool:", error);
-      
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error preparing note event: ${error instanceof Error ? error.message : "Unknown error"}`,
-          },
-        ],
-      };
-    }
-  },
-);
-
-server.tool(
-  "signNote",
-  "Sign a note event with a private key",
-  signNoteToolConfig,
-  async ({ privateKey, noteEvent }) => {
-    try {
-      const result = await signNote(privateKey, noteEvent);
-      
-      if (result.success) {
-        let response = `Note signed successfully!\n\n`;
-        response += `${result.message}\n`;
-        response += `Note ID: ${result.signedNote?.id}\n`;
-        response += `Content: "${noteEvent.content}"\n`;
-        
-        response += `\nSigned Note Event:\n${JSON.stringify(result.signedNote, null, 2)}`;
-        
-        return {
-          content: [
-            {
-              type: "text",
-              text: response,
-            },
-          ],
-        };
-      } else {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Failed to sign note: ${result.message}`,
-            },
-          ],
-        };
-      }
-    } catch (error) {
-      console.error("Error in signNote tool:", error);
-      
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error signing note: ${error instanceof Error ? error.message : "Unknown error"}`,
-          },
-        ],
-      };
-    }
-  },
-);
-
-server.tool(
-  "publishNote",
-  "Publish a signed note to Nostr relays",
-  publishNoteToolConfig,
-  async ({ signedNote, relays }) => {
-    try {
-      const result = await publishNote(signedNote, relays);
-      
-      if (result.success) {
-        let response = `Note published successfully!\n\n`;
-        response += `${result.message}\n`;
-        if (result.noteId) {
-          response += `Note ID: ${result.noteId}\n`;
-        }
-        response += `Content: "${signedNote.content}"\n`;
-        response += `Author: ${formatPubkey(signedNote.pubkey)}\n`;
-        if (relays && relays.length > 0) {
-          response += `Relays: ${relays.join(", ")}\n`;
-        }
-        
-        return {
-          content: [
-            {
-              type: "text",
-              text: response,
-            },
-          ],
-        };
-      } else {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Failed to publish note: ${result.message}`,
-            },
-          ],
-        };
-      }
-    } catch (error) {
-      console.error("Error in publishNote tool:", error);
-      
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error publishing note: ${error instanceof Error ? error.message : "Unknown error"}`,
-          },
-        ],
-      };
-    }
-  },
+  }
 );
 
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("Nostr MCP Server running on stdio");
+  console.error("Simplified Nostr MCP Server running on stdio - Using clawstr-cli for all operations");
 }
 
 main().catch((error) => {
@@ -1592,4 +645,4 @@ process.on('uncaughtException', (error) => {
 process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled rejection at:', promise, 'reason:', reason);
   // Don't exit - keep the server running
-}); 
+});
