@@ -78,7 +78,7 @@ const sub_schema = z.tuple([str]).rest(filter_schema)
 
 export class NostrRelay {
   private readonly _emitter: EventEmitter
-  private readonly _port: number
+  private _port: number
   private readonly _purge: number | null
   private readonly _subs: Map<string, Subscription>
 
@@ -106,6 +106,10 @@ export class NostrRelay {
     return this._subs
   }
 
+  get port() {
+    return this._port
+  }
+
   get url() {
     return `${HOST}:${this._port}`
   }
@@ -118,33 +122,75 @@ export class NostrRelay {
   }
 
   async start() {
-    this._wss = new WebSocketServer({ port: this._port })
     this._isClosing = false
 
-    DEBUG && console.log('[ relay ] running on port:', this._port)
+    // Bun's http server (used by ws) does not reliably support binding to port 0.
+    // If callers pass 0, we pick a random high port and retry on EADDRINUSE.
+    const randomHighPort = () => {
+      // IANA ephemeral range, avoids privileged ports and typical local dev defaults.
+      const min = 49152
+      const max = 65535
+      return Math.floor(min + Math.random() * (max - min + 1))
+    }
 
-    this.wss.on('connection', socket => {
-      const instance = new ClientSession(this, socket)
+    const maxAttempts = this._port === 0 ? 25 : 1
 
-      socket.on('message', msg => instance._handler(msg.toString()))
-      socket.on('error', err => instance._onerr(err))
-      socket.on('close', code => instance._cleanup(code))
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const port = this._port === 0 ? randomHighPort() : this._port
 
-      this.conn += 1
-    })
+      // Create a fresh server each attempt.
+      this._wss = new WebSocketServer({ port })
 
-    return new Promise(res => {
-      this.wss.on('listening', () => {
+      DEBUG && console.log('[ relay ] running on port:', port)
+
+      this.wss.on('connection', socket => {
+        const instance = new ClientSession(this, socket)
+
+        socket.on('message', msg => instance._handler(msg.toString()))
+        socket.on('error', err => instance._onerr(err))
+        socket.on('close', code => instance._cleanup(code))
+
+        this.conn += 1
+      })
+
+      try {
+        await new Promise<void>((resolve, reject) => {
+          this.wss.once('error', reject)
+          this.wss.once('listening', () => resolve())
+        })
+
+        this._port = port
+
         if (this._purge !== null) {
           DEBUG && console.log(`[ relay ] purging events every ${this._purge} seconds`)
           setInterval(() => {
             this._cache = []
           }, this._purge * 1000)
         }
+
         this._emitter.emit('connected')
-        res(this)
-      })
-    })
+        return this
+      } catch (err: any) {
+        const isAddrInUse = err?.code === 'EADDRINUSE'
+
+        // Best-effort cleanup before retrying.
+        try {
+          this._wss?.close()
+        } catch {
+          // ignore
+        } finally {
+          this._wss = null
+        }
+
+        if (this._port === 0 && isAddrInUse) {
+          continue
+        }
+
+        throw err
+      }
+    }
+
+    throw new Error('Failed to start relay after multiple attempts to reserve a port')
   }
 
   onconnect(cb: () => void) {
