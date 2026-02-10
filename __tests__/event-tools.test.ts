@@ -1,5 +1,6 @@
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { NostrRelay } from "../utils/ephemeral-relay.js";
+import { DEFAULT_RELAYS, KINDS, QUERY_TIMEOUT } from "../utils/constants.js";
 
 import {
   createNostrEvent,
@@ -28,14 +29,14 @@ describe("event-tools", () => {
       "0000000000000000000000000000000000000000000000000000000000000001";
 
     const created = await createNostrEvent({
-      kind: 7,
+      kind: KINDS.REACTION,
       content: "+",
       tags: [["e", "deadbeef".repeat(8)]],
       privateKey,
     });
 
     expect(created.success).toBe(true);
-    expect(created.event?.kind).toBe(7);
+    expect(created.event?.kind).toBe(KINDS.REACTION);
     expect(created.event?.content).toBe("+");
 
     const signed = await signNostrEvent({
@@ -46,9 +47,12 @@ describe("event-tools", () => {
     expect(signed.signedEvent?.id).toBeTruthy();
     expect(signed.signedEvent?.sig).toBeTruthy();
 
+    // Prefer the ephemeral relay for test determinism; fall back to defaults if it's unavailable.
+    const relays = relayUrl ? [relayUrl] : DEFAULT_RELAYS;
+
     const published = await publishNostrEvent({
       signedEvent: signed.signedEvent as any,
-      relays: [relayUrl],
+      relays,
     });
     if (!published.success) {
       throw new Error(published.message);
@@ -56,12 +60,12 @@ describe("event-tools", () => {
     expect(published.success).toBe(true);
 
     // Poll queryEvents until it shows up (relay sends OK before storing).
-    const deadline = Date.now() + 2000;
+    const deadline = Date.now() + QUERY_TIMEOUT;
     let last: any = null;
     while (Date.now() < deadline) {
       last = await queryEvents({
-        relays: [relayUrl],
-        kinds: [7],
+        relays,
+        kinds: [KINDS.REACTION],
         authors: [signed.signedEvent!.pubkey],
         limit: 25,
       });
