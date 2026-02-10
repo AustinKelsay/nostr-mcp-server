@@ -144,6 +144,8 @@ export interface ConversionResult {
   success: boolean;
   result?: string;
   originalType?: string;
+  // Alias for callers that expect a nip19decode-like shape.
+  type?: string;
   targetType?: string;
   message?: string;
   data?: any;
@@ -152,9 +154,17 @@ export interface ConversionResult {
 /**
  * Convert any NIP-19 entity to any other format
  */
-export function convertNip19Entity(options: ConversionInput): ConversionResult {
+export function convertNip19Entity(options: ConversionInput): ConversionResult;
+export function convertNip19Entity(input: string): ConversionResult;
+export function convertNip19Entity(arg: ConversionInput | string): ConversionResult {
+  // Convenience: allow callers to "decode safely" (with relay URL filtering)
+  // by passing just an input string.
+  if (typeof arg === "string") {
+    return analyzeNip19Entity(arg);
+  }
+
   try {
-    const { input, targetType, entityData } = options;
+    const { input, targetType, entityData } = arg;
     const cleanInput = input.trim();
 
     // First, detect what type of input we have
@@ -293,6 +303,7 @@ export function convertNip19Entity(options: ConversionInput): ConversionResult {
       success: true,
       result,
       originalType: sourceType,
+      type: sourceType,
       targetType,
       message: `Successfully converted ${sourceType} to ${targetType}`,
       data: sourceData
@@ -346,6 +357,7 @@ export function analyzeNip19Entity(input: string): ConversionResult {
       return {
         success: true,
         originalType: 'hex',
+        type: 'hex',
         message: 'Valid 64-character hex string',
         data: cleanInput.toLowerCase()
       };
@@ -370,6 +382,7 @@ export function analyzeNip19Entity(input: string): ConversionResult {
       return {
         success: true,
         originalType: decoded.type,
+        type: decoded.type,
         message: `Valid ${decoded.type} entity`,
         data: safeData
       };

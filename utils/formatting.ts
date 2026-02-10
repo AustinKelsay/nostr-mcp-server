@@ -1,4 +1,5 @@
 import { hexToNpub } from './conversion.js';
+import type { NostrEvent } from "./pool.js";
 
 /**
  * Format a pubkey for display, converting to npub format
@@ -46,4 +47,26 @@ export function formatContacts(
       return `- ${pk}${relay}${pet}`;
     })
     .join("\n");
+}
+
+export function formatEvent(evt: NostrEvent): string {
+  const created = new Date(evt.created_at * 1000).toLocaleString();
+  const author = formatPubkey(evt.pubkey, true);
+  const content =
+    typeof evt.content === "string" && evt.content.length > 240
+      ? `${evt.content.slice(0, 240)}…`
+      : evt.content ?? "";
+  return [
+    `Kind: ${evt.kind}`,
+    `ID: ${evt.id}`,
+    `Author: ${author}`,
+    `Created: ${created}`,
+    `Content: ${content}`,
+    `Tags: ${evt.tags?.length ? JSON.stringify(evt.tags) : "[]"}`,
+    `---`,
+  ].join("\n");
+}
+
+export function formatEvents(events: NostrEvent[]): string {
+  return events.map(formatEvent).join("\n");
 }

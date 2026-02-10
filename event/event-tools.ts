@@ -1,16 +1,17 @@
 import { z } from "zod";
-import { createEvent, decode as nip19decode, getEventHash, signEvent } from "snstr";
+import { createEvent, getEventHash, signEvent } from "snstr";
 import { schnorr } from "@noble/curves/secp256k1";
 import WebSocket from "ws";
 
+import { DEFAULT_RELAYS, QUERY_TIMEOUT, KINDS } from "../utils/constants.js";
 import {
-  DEFAULT_RELAYS,
-  QUERY_TIMEOUT,
   NostrEvent,
   NostrFilter,
+  convertNip19Entity,
   npubToHex,
   normalizePrivateKey,
-  formatPubkey,
+  formatEvent,
+  formatEvents,
 } from "../utils/index.js";
 
 function normalizePubkey(input: string): string | null {
@@ -19,7 +20,7 @@ function normalizePubkey(input: string): string | null {
 
   // Support nprofile entities as a convenience.
   try {
-    const decoded = nip19decode(input as `${string}1${string}`);
+    const decoded = convertNip19Entity(input);
     if (decoded.type === "nprofile" && decoded.data?.pubkey) {
       return String(decoded.data.pubkey).toLowerCase();
     }
@@ -36,7 +37,7 @@ function normalizeEventId(input: string): string | null {
 
   // note / nevent conveniences
   try {
-    const decoded = nip19decode(clean as `${string}1${string}`);
+    const decoded = convertNip19Entity(clean);
     if (decoded.type === "note") return String(decoded.data).toLowerCase();
     if (decoded.type === "nevent" && decoded.data?.id) return String(decoded.data.id).toLowerCase();
   } catch {
@@ -51,21 +52,7 @@ function pubkeyFromPrivateKey(privateKeyHex: string): string {
 }
 
 function formatEventForDisplay(evt: NostrEvent): string {
-  const created = new Date(evt.created_at * 1000).toLocaleString();
-  const author = formatPubkey(evt.pubkey, true);
-  const content =
-    typeof evt.content === "string" && evt.content.length > 240
-      ? `${evt.content.slice(0, 240)}…`
-      : evt.content ?? "";
-  return [
-    `Kind: ${evt.kind}`,
-    `ID: ${evt.id}`,
-    `Author: ${author}`,
-    `Created: ${created}`,
-    `Content: ${content}`,
-    `Tags: ${evt.tags?.length ? JSON.stringify(evt.tags) : "[]"}`,
-    `---`,
-  ].join("\n");
+  return formatEvent(evt);
 }
 
 async function queryEventsOverWebSocket(
@@ -464,5 +451,5 @@ export async function publishNostrEvent(params: {
 }
 
 export function formatEventsList(events: NostrEvent[]): string {
-  return events.map(formatEventForDisplay).join("\n");
+  return formatEvents(events);
 }
