@@ -11,7 +11,8 @@ import {
   QUERY_TIMEOUT,
   getFreshPool,
   npubToHex,
-  formatPubkey
+  formatPubkey,
+  formatContacts
 } from "./utils/index.js";
 import {
   ZapReceipt,
@@ -67,6 +68,24 @@ import {
   publishNostrEventToolConfig,
   publishNostrEvent
 } from "./event/event-tools.js";
+import {
+  getContactListToolConfig,
+  getContactList,
+  getFollowingToolConfig,
+  getFollowing,
+  followToolConfig,
+  follow,
+  unfollowToolConfig,
+  unfollow,
+  reactToEventToolConfig,
+  reactToEvent,
+  repostEventToolConfig,
+  repostEvent,
+  deleteEventToolConfig,
+  deleteEvent,
+  replyToEventToolConfig,
+  replyToEvent
+} from "./social/social-tools.js";
 
 // Set WebSocket implementation for Node.js (Bun has native WebSocket)
 if (typeof globalThis.WebSocket === 'undefined') {
@@ -927,6 +946,102 @@ server.tool(
         },
       ],
     };
+  },
+);
+
+server.tool(
+  "getContactList",
+  "Get a user's contact list (kind 3) and followed pubkeys",
+  getContactListToolConfig,
+  async ({ pubkey, relays }) => {
+    const res = await getContactList({ pubkey, relays });
+    if (!res.success) return { content: [{ type: "text", text: res.message }] };
+    return {
+      content: [
+        {
+          type: "text",
+          text: `${res.message}\n\n${formatContacts(res.contacts ?? [])}`,
+        },
+      ],
+    };
+  },
+);
+
+server.tool(
+  "getFollowing",
+  "Get pubkeys a user is following (alias of getContactList)",
+  getFollowingToolConfig,
+  async ({ pubkey, relays }) => {
+    const res = await getFollowing({ pubkey, relays });
+    if (!res.success) return { content: [{ type: "text", text: res.message }] };
+    return {
+      content: [
+        {
+          type: "text",
+          text: `${res.message}\n\n${formatContacts(res.contacts ?? [])}`,
+        },
+      ],
+    };
+  },
+);
+
+server.tool(
+  "follow",
+  "Follow a pubkey by updating your contact list (kind 3)",
+  followToolConfig,
+  async ({ privateKey, targetPubkey, relayHint, petname, relays }) => {
+    const res = await follow({ privateKey, targetPubkey, relayHint, petname, relays });
+    return { content: [{ type: "text", text: res.message }] };
+  },
+);
+
+server.tool(
+  "unfollow",
+  "Unfollow a pubkey by updating your contact list (kind 3)",
+  unfollowToolConfig,
+  async ({ privateKey, targetPubkey, relays }) => {
+    const res = await unfollow({ privateKey, targetPubkey, relays });
+    return { content: [{ type: "text", text: res.message }] };
+  },
+);
+
+server.tool(
+  "reactToEvent",
+  "React to an event (kind 7)",
+  reactToEventToolConfig,
+  async ({ privateKey, target, reaction, relays }) => {
+    const res = await reactToEvent({ privateKey, target, reaction, relays });
+    return { content: [{ type: "text", text: res.message }] };
+  },
+);
+
+server.tool(
+  "repostEvent",
+  "Repost an event (kind 6)",
+  repostEventToolConfig,
+  async ({ privateKey, target, relays }) => {
+    const res = await repostEvent({ privateKey, target, relays });
+    return { content: [{ type: "text", text: res.message }] };
+  },
+);
+
+server.tool(
+  "deleteEvent",
+  "Delete one or more events (kind 5 deletion request)",
+  deleteEventToolConfig,
+  async ({ privateKey, targets, reason, relays }) => {
+    const res = await deleteEvent({ privateKey, targets, reason, relays });
+    return { content: [{ type: "text", text: res.message }] };
+  },
+);
+
+server.tool(
+  "replyToEvent",
+  "Reply to an event with correct NIP-10 thread tags (kind 1)",
+  replyToEventToolConfig,
+  async ({ privateKey, target, content, tags, relays }) => {
+    const res = await replyToEvent({ privateKey, target, content, tags, relays });
+    return { content: [{ type: "text", text: res.message }] };
   },
 );
 
