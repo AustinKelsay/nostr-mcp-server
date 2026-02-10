@@ -9,6 +9,7 @@ import {
   NostrEvent,
   NostrFilter,
   npubToHex,
+  normalizePrivateKey,
   formatPubkey,
 } from "../utils/index.js";
 
@@ -43,26 +44,6 @@ function normalizeEventId(input: string): string | null {
   }
 
   return null;
-}
-
-function normalizePrivateKey(privateKey: string): string {
-  const pk = privateKey.trim();
-
-  if (pk.startsWith("nsec")) {
-    if (!/^nsec1[0-9a-z]+$/.test(pk)) {
-      throw new Error("Invalid nsec format: must match pattern nsec1[0-9a-z]+");
-    }
-
-    const decoded = nip19decode(pk as `${string}1${string}`);
-    if (decoded.type !== "nsec") throw new Error("Invalid nsec format");
-    return String(decoded.data);
-  }
-
-  if (!/^[0-9a-f]{64}$/i.test(pk)) {
-    throw new Error("Invalid private key format: must be 64-character hex string or valid nsec format");
-  }
-
-  return pk.toLowerCase();
 }
 
 function pubkeyFromPrivateKey(privateKeyHex: string): string {
@@ -340,12 +321,29 @@ export async function signNostrEvent(params: {
 }): Promise<{ success: boolean; message: string; signedEvent?: NostrEvent }> {
   try {
     const privateKeyHex = normalizePrivateKey(params.privateKey);
-    const eventTemplate = params.event;
+    const eventTemplate = params.event as any;
+
+    // Normalize pubkey to hex for hashing/signing. This also fixes callers passing npub.
+    const normalizedPubkey = npubToHex(String(eventTemplate.pubkey ?? ""));
+    if (!normalizedPubkey) {
+      return { success: false, message: "Invalid event pubkey format. Provide a 64-char hex pubkey or npub." };
+    }
+
+    // Optional safety: ensure the event pubkey matches the provided private key.
+    const derivedPubkey = pubkeyFromPrivateKey(privateKeyHex);
+    if (derivedPubkey !== normalizedPubkey) {
+      return { success: false, message: "Private key does not match the public key in the event." };
+    }
+
+    const normalizedEventTemplate = {
+      ...eventTemplate,
+      pubkey: normalizedPubkey,
+    };
 
     // snstr's getEventHash/signEvent expect the same event envelope used elsewhere in this repo.
-    const id = await getEventHash(eventTemplate as any);
+    const id = await getEventHash(normalizedEventTemplate);
     const sig = await signEvent(id, privateKeyHex);
-    const signed: NostrEvent = { ...(eventTemplate as any), id, sig };
+    const signed: NostrEvent = { ...(normalizedEventTemplate as any), id, sig };
 
     return { success: true, message: "Event signed successfully.", signedEvent: signed };
   } catch (error) {
