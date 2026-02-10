@@ -9,7 +9,7 @@ https://github.com/user-attachments/assets/1d2d47d0-c61b-44e2-85be-5985d2a81c64
 
 ## Features
 
-This server implements 38 tools for interacting with the Nostr network:
+This server implements 40 tools for interacting with the Nostr network:
 
 ### Reading & Querying Tools
 1. `getProfile`: Fetches a user's profile information by public key
@@ -21,49 +21,51 @@ This server implements 38 tools for interacting with the Nostr network:
 7. `queryEvents`: Generic event query tool supporting kinds/authors/ids/tags and timestamps
 8. `getContactList`: Fetches a user's contact list (kind 3) and followed pubkeys
 9. `getFollowing`: Alias of `getContactList`
+10. `getRelayList`: Fetches a user's relay list metadata (NIP-65 kind 10002)
 
 ### Identity & Profile Management Tools
-10. `createKeypair`: Generate new Nostr keypairs in hex and/or npub/nsec format
-11. `createProfile`: Create a new Nostr profile (kind 0 event) with metadata
-12. `updateProfile`: Update an existing Nostr profile with new metadata
+11. `createKeypair`: Generate new Nostr keypairs in hex and/or npub/nsec format
+12. `createProfile`: Create a new Nostr profile (kind 0 event) with metadata
+13. `updateProfile`: Update an existing Nostr profile with new metadata
 
 ### Note Creation & Publishing Tools
-13. `createNote`: Create unsigned kind 1 note events with specified content and tags
-14. `signNote`: Sign note events with a private key, generating cryptographically valid signatures
-15. `publishNote`: Publish signed notes to specified Nostr relays
-16. `postNote`: All-in-one authenticated note posting using an existing private key (nsec/hex)
+14. `createNote`: Create unsigned kind 1 note events with specified content and tags
+15. `signNote`: Sign note events with a private key, generating cryptographically valid signatures
+16. `publishNote`: Publish signed notes to specified Nostr relays
+17. `postNote`: All-in-one authenticated note posting using an existing private key (nsec/hex)
 
 ### Generic Event Tools
-17. `createNostrEvent`: Create unsigned Nostr events of any kind (provides low-level building block for NIPs beyond notes/profiles)
-18. `signNostrEvent`: Sign any unsigned Nostr event with a private key
-19. `publishNostrEvent`: Publish any signed Nostr event to relays
+18. `createNostrEvent`: Create unsigned Nostr events of any kind (provides low-level building block for NIPs beyond notes/profiles)
+19. `signNostrEvent`: Sign any unsigned Nostr event with a private key
+20. `publishNostrEvent`: Publish any signed Nostr event to relays
 
 ### Social Tools
-20. `follow`: Follow a pubkey by updating your contact list (kind 3)
-21. `unfollow`: Unfollow a pubkey by updating your contact list (kind 3)
-22. `reactToEvent`: React to an event (kind 7)
-23. `repostEvent`: Repost an event (kind 6)
-24. `deleteEvent`: Delete one or more events (kind 5 deletion request)
-25. `replyToEvent`: Reply to an event with correct NIP-10 thread tags (kind 1)
+21. `setRelayList`: Publish your relay list metadata (NIP-65 kind 10002)
+22. `follow`: Follow a pubkey by updating your contact list (kind 3)
+23. `unfollow`: Unfollow a pubkey by updating your contact list (kind 3)
+24. `reactToEvent`: React to an event (kind 7)
+25. `repostEvent`: Repost an event (kind 6)
+26. `deleteEvent`: Delete one or more events (kind 5 deletion request)
+27. `replyToEvent`: Reply to an event with correct NIP-10 thread tags (kind 1)
 
 ### Messaging Tools
-26. `encryptNip04`: Encrypt plaintext using NIP-04 (AES-CBC) for direct messages
-27. `decryptNip04`: Decrypt ciphertext using NIP-04 (AES-CBC) for direct messages
-28. `sendDmNip04`: Send a NIP-04 encrypted DM (kind 4)
-29. `getDmConversationNip04`: Fetch and optionally decrypt a NIP-04 DM conversation (kind 4)
-30. `encryptNip44`: Encrypt plaintext using NIP-44 (ChaCha20 + HMAC)
-31. `decryptNip44`: Decrypt ciphertext using NIP-44 (ChaCha20 + HMAC)
-32. `sendDmNip44`: Send a NIP-44 encrypted DM using NIP-17 gift wrap (kind 1059)
-33. `decryptDmNip44`: Decrypt a NIP-17 gift wrapped DM (kind 1059)
-34. `getDmInboxNip44`: Fetch and decrypt your NIP-44 DM inbox (NIP-17 gift wraps, kind 1059)
+28. `encryptNip04`: Encrypt plaintext using NIP-04 (AES-CBC) for direct messages
+29. `decryptNip04`: Decrypt ciphertext using NIP-04 (AES-CBC) for direct messages
+30. `sendDmNip04`: Send a NIP-04 encrypted DM (kind 4)
+31. `getDmConversationNip04`: Fetch and optionally decrypt a NIP-04 DM conversation (kind 4)
+32. `encryptNip44`: Encrypt plaintext using NIP-44 (ChaCha20 + HMAC)
+33. `decryptNip44`: Decrypt ciphertext using NIP-44 (ChaCha20 + HMAC)
+34. `sendDmNip44`: Send a NIP-44 encrypted DM using NIP-17 gift wrap (kind 1059)
+35. `decryptDmNip44`: Decrypt a NIP-17 gift wrapped DM (kind 1059)
+36. `getDmInboxNip44`: Fetch and decrypt your NIP-44 DM inbox (NIP-17 gift wraps, kind 1059)
 
 ### Anonymous Tools
-35. `sendAnonymousZap`: Prepare an anonymous zap to a profile or event, generating a lightning invoice for payment
-36. `postAnonymousNote`: Post an anonymous note using a randomly generated one-time keypair
+37. `sendAnonymousZap`: Prepare an anonymous zap to a profile or event, generating a lightning invoice for payment
+38. `postAnonymousNote`: Post an anonymous note using a randomly generated one-time keypair
 
 ### NIP-19 Entity Tools
-37. `convertNip19`: Convert between different NIP-19 entity formats (hex, npub, nsec, note, nprofile, nevent, naddr)
-38. `analyzeNip19`: Analyze and decode any NIP-19 entity to understand its type and contents
+39. `convertNip19`: Convert between different NIP-19 entity formats (hex, npub, nsec, note, nprofile, nevent, naddr)
+40. `analyzeNip19`: Analyze and decode any NIP-19 entity to understand its type and contents
 
 All tools fully support both hex public keys and npub format, with user-friendly display of Nostr identifiers.
 

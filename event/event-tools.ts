@@ -59,8 +59,27 @@ async function queryEventsOverWebSocket(
   relays: string[],
   filter: NostrFilter,
   timeoutMs: number,
+  authPrivateKeyHex?: string,
 ): Promise<{ success: boolean; events: NostrEvent[]; details: string[] }> {
   const limit = typeof filter.limit === "number" ? filter.limit : undefined;
+
+  const createSignedAuthEvent = async (relayUrl: string, challenge: string): Promise<NostrEvent> => {
+    const pubkey = pubkeyFromPrivateKey(authPrivateKeyHex!);
+    const unsigned = createEvent(
+      {
+        kind: KINDS.AUTH,
+        content: "",
+        tags: [
+          ["relay", relayUrl],
+          ["challenge", challenge],
+        ],
+      },
+      pubkey,
+    ) as any;
+    const id = await getEventHash(unsigned);
+    const sig = await signEvent(id, authPrivateKeyHex!);
+    return { ...(unsigned as any), id, sig } as NostrEvent;
+  };
 
   const queryOne = (relayUrl: string) =>
     new Promise<{ relay: string; ok: boolean; events: NostrEvent[]; reason?: string }>((resolve) => {
@@ -68,6 +87,7 @@ async function queryEventsOverWebSocket(
       const events: NostrEvent[] = [];
       let finished = false;
       let timer: any = null;
+      let authed = false;
 
       const finish = (ok: boolean, reason?: string) => {
         if (finished) return;
@@ -102,6 +122,22 @@ async function queryEventsOverWebSocket(
         try {
           const msg = JSON.parse(data.toString());
           if (!Array.isArray(msg) || msg.length < 2) return;
+          if (msg[0] === "AUTH" && typeof msg[1] === "string") {
+            if (!authPrivateKeyHex) return finish(false, "auth_required");
+            if (authed) return;
+            authed = true;
+            void (async () => {
+              try {
+                const authEvt = await createSignedAuthEvent(relayUrl, msg[1]);
+                ws.send(JSON.stringify(["AUTH", authEvt]));
+                // Retry the REQ after AUTH.
+                ws.send(JSON.stringify(["REQ", subId, filter]));
+              } catch (e: any) {
+                finish(false, `auth_failed: ${e instanceof Error ? e.message : String(e)}`);
+              }
+            })();
+            return;
+          }
           if (msg[0] === "EVENT" && msg[1] === subId && msg[2]) {
             events.push(msg[2] as NostrEvent);
             if (limit && events.length >= limit) finish(true);
@@ -150,6 +186,7 @@ async function queryEventsOverWebSocket(
 
 export const queryEventsToolConfig = {
   relays: z.array(z.string()).optional().describe("Optional list of relays to query"),
+  authPrivateKey: z.string().optional().describe("Optional private key (hex or nsec) used to AUTH to relays that require NIP-42"),
   kinds: z.array(z.number().int().nonnegative()).optional().describe("Optional list of event kinds"),
   authors: z
     .array(z.string())
@@ -172,6 +209,7 @@ export const queryEventsToolConfig = {
 export async function queryEvents(
   params: {
     relays?: string[];
+    authPrivateKey?: string;
     kinds?: number[];
     authors?: string[];
     ids?: string[];
@@ -221,7 +259,8 @@ export async function queryEvents(
 
   if (params.search) (filter as any).search = params.search;
 
-  const wsResult = await queryEventsOverWebSocket(relays, filter, QUERY_TIMEOUT);
+  const authPrivateKeyHex = params.authPrivateKey ? normalizePrivateKey(params.authPrivateKey) : undefined;
+  const wsResult = await queryEventsOverWebSocket(relays, filter, QUERY_TIMEOUT, authPrivateKeyHex);
   if (!wsResult.success) {
     return {
       success: false,
@@ -346,6 +385,7 @@ export async function signNostrEvent(params: {
 
 export const publishNostrEventToolConfig = {
   relays: z.array(z.string()).optional().describe("Optional list of relays to publish to"),
+  authPrivateKey: z.string().optional().describe("Optional private key (hex or nsec) used to AUTH to relays that require NIP-42"),
   signedEvent: z
     .object({
       id: z.string().describe("Event ID"),
@@ -362,8 +402,10 @@ export const publishNostrEventToolConfig = {
 export async function publishNostrEvent(params: {
   signedEvent: NostrEvent;
   relays?: string[];
+  authPrivateKey?: string;
 }): Promise<{ success: boolean; message: string; acceptedBy?: number; relayCount?: number }> {
   const relays = params.relays?.length ? params.relays : DEFAULT_RELAYS;
+  const authPrivateKeyHex = params.authPrivateKey ? normalizePrivateKey(params.authPrivateKey) : undefined;
 
   if (relays.length === 0) {
     return { success: true, message: "No relays specified; nothing was published.", acceptedBy: 0, relayCount: 0 };
@@ -373,6 +415,8 @@ export async function publishNostrEvent(params: {
     new Promise<{ relay: string; ok: boolean; reason?: string }>((resolve) => {
       let finished = false;
       let timer: any = null;
+      let authed = false;
+      let resentAfterAuth = false;
 
       const finish = (ok: boolean, reason?: string) => {
         if (finished) return;
@@ -389,18 +433,54 @@ export async function publishNostrEvent(params: {
       const ws = new WebSocket(relayUrl);
       timer = setTimeout(() => finish(false, "timeout"), QUERY_TIMEOUT);
 
-      ws.on("open", () => {
+      const sendEvent = () => {
         try {
           ws.send(JSON.stringify(["EVENT", params.signedEvent]));
         } catch (e: any) {
           finish(false, `send_failed: ${e instanceof Error ? e.message : String(e)}`);
         }
+      };
+
+      ws.on("open", () => {
+        sendEvent();
       });
 
       ws.on("message", (data: any) => {
         try {
           const msg = JSON.parse(data.toString());
           if (!Array.isArray(msg) || msg.length < 2) return;
+          if (msg[0] === "AUTH" && typeof msg[1] === "string") {
+            if (!authPrivateKeyHex) return finish(false, "auth_required");
+            if (authed) return;
+            authed = true;
+            void (async () => {
+              try {
+                const pubkey = pubkeyFromPrivateKey(authPrivateKeyHex);
+                const unsigned = createEvent(
+                  {
+                    kind: KINDS.AUTH,
+                    content: "",
+                    tags: [
+                      ["relay", relayUrl],
+                      ["challenge", msg[1]],
+                    ],
+                  },
+                  pubkey,
+                ) as any;
+                const id = await getEventHash(unsigned);
+                const sig = await signEvent(id, authPrivateKeyHex);
+                const authEvt = { ...(unsigned as any), id, sig } as NostrEvent;
+                ws.send(JSON.stringify(["AUTH", authEvt]));
+                if (!resentAfterAuth) {
+                  resentAfterAuth = true;
+                  sendEvent();
+                }
+              } catch (e: any) {
+                finish(false, `auth_failed: ${e instanceof Error ? e.message : String(e)}`);
+              }
+            })();
+            return;
+          }
           if (msg[0] === "OK" && msg[1] === params.signedEvent.id) {
             finish(msg[2] === true, typeof msg[3] === "string" ? msg[3] : undefined);
           }

@@ -69,6 +69,13 @@ import {
   publishNostrEvent
 } from "./event/event-tools.js";
 import {
+  getRelayListToolConfig,
+  getRelayList,
+  setRelayListToolConfig,
+  setRelayList,
+  formatRelayList
+} from "./relay/relay-tools.js";
+import {
   getContactListToolConfig,
   getContactList,
   getFollowingToolConfig,
@@ -973,8 +980,8 @@ server.tool(
   "queryEvents",
   "Query Nostr events using a generic filter (kinds/authors/ids/tags/timestamps)",
   queryEventsToolConfig,
-  async ({ relays, kinds, authors, ids, since, until, limit, tags, search }) => {
-    const result = await queryEvents({ relays, kinds, authors, ids, since, until, limit, tags, search });
+  async ({ relays, authPrivateKey, kinds, authors, ids, since, until, limit, tags, search }) => {
+    const result = await queryEvents({ relays, authPrivateKey, kinds, authors, ids, since, until, limit, tags, search });
 
     if (!result.success) {
       return {
@@ -1033,6 +1040,34 @@ server.tool(
         },
       ],
     };
+  },
+);
+
+server.tool(
+  "getRelayList",
+  "Get a user's relay list metadata (NIP-65 kind 10002)",
+  getRelayListToolConfig,
+  async ({ pubkey, relays, authPrivateKey }) => {
+    const res = await getRelayList({ pubkey, relays, authPrivateKey });
+    if (!res.success) return { content: [{ type: "text", text: res.message }] };
+    return {
+      content: [
+        {
+          type: "text",
+          text: `${res.message}\n\n${formatRelayList(res.relays ?? [])}`,
+        },
+      ],
+    };
+  },
+);
+
+server.tool(
+  "setRelayList",
+  "Publish your relay list metadata (NIP-65 kind 10002)",
+  setRelayListToolConfig,
+  async ({ privateKey, relayList, relays }) => {
+    const res = await setRelayList({ privateKey, relayList, relays });
+    return { content: [{ type: "text", text: res.message }] };
   },
 );
 
@@ -1887,8 +1922,8 @@ server.tool(
   "publishNostrEvent",
   "Publish a signed Nostr event to relays",
   publishNostrEventToolConfig,
-  async ({ signedEvent, relays }) => {
-    const result = await publishNostrEvent({ signedEvent: signedEvent as any, relays });
+  async ({ signedEvent, relays, authPrivateKey }) => {
+    const result = await publishNostrEvent({ signedEvent: signedEvent as any, relays, authPrivateKey });
 
     return {
       content: [{ type: "text", text: result.message }],
