@@ -9,7 +9,7 @@ https://github.com/user-attachments/assets/1d2d47d0-c61b-44e2-85be-5985d2a81c64
 
 ## Features
 
-This server implements 21 tools for interacting with the Nostr network:
+This server implements 29 tools for interacting with the Nostr network:
 
 ### Reading & Querying Tools
 1. `getProfile`: Fetches a user's profile information by public key
@@ -19,30 +19,40 @@ This server implements 21 tools for interacting with the Nostr network:
 5. `getSentZaps`: Fetches zaps sent by a user, including detailed payment information
 6. `getAllZaps`: Fetches both sent and received zaps for a user, clearly labeled with direction and totals
 7. `queryEvents`: Generic event query tool supporting kinds/authors/ids/tags and timestamps
+8. `getContactList`: Fetches a user's contact list (kind 3) and followed pubkeys
+9. `getFollowing`: Alias of `getContactList`
 
 ### Identity & Profile Management Tools
-8. `createKeypair`: Generate new Nostr keypairs in hex and/or npub/nsec format
-9. `createProfile`: Create a new Nostr profile (kind 0 event) with metadata
-10. `updateProfile`: Update an existing Nostr profile with new metadata
+10. `createKeypair`: Generate new Nostr keypairs in hex and/or npub/nsec format
+11. `createProfile`: Create a new Nostr profile (kind 0 event) with metadata
+12. `updateProfile`: Update an existing Nostr profile with new metadata
 
 ### Note Creation & Publishing Tools
-11. `createNote`: Create unsigned kind 1 note events with specified content and tags
-12. `signNote`: Sign note events with a private key, generating cryptographically valid signatures
-13. `publishNote`: Publish signed notes to specified Nostr relays
-14. `postNote`: All-in-one authenticated note posting using an existing private key (nsec/hex)
+13. `createNote`: Create unsigned kind 1 note events with specified content and tags
+14. `signNote`: Sign note events with a private key, generating cryptographically valid signatures
+15. `publishNote`: Publish signed notes to specified Nostr relays
+16. `postNote`: All-in-one authenticated note posting using an existing private key (nsec/hex)
 
 ### Generic Event Tools
-15. `createNostrEvent`: Create unsigned Nostr events of any kind (provides low-level building block for NIPs beyond notes/profiles)
-16. `signNostrEvent`: Sign any unsigned Nostr event with a private key
-17. `publishNostrEvent`: Publish any signed Nostr event to relays
+17. `createNostrEvent`: Create unsigned Nostr events of any kind (provides low-level building block for NIPs beyond notes/profiles)
+18. `signNostrEvent`: Sign any unsigned Nostr event with a private key
+19. `publishNostrEvent`: Publish any signed Nostr event to relays
+
+### Social Tools
+20. `follow`: Follow a pubkey by updating your contact list (kind 3)
+21. `unfollow`: Unfollow a pubkey by updating your contact list (kind 3)
+22. `reactToEvent`: React to an event (kind 7)
+23. `repostEvent`: Repost an event (kind 6)
+24. `deleteEvent`: Delete one or more events (kind 5 deletion request)
+25. `replyToEvent`: Reply to an event with correct NIP-10 thread tags (kind 1)
 
 ### Anonymous Tools
-18. `sendAnonymousZap`: Prepare an anonymous zap to a profile or event, generating a lightning invoice for payment
-19. `postAnonymousNote`: Post an anonymous note using a randomly generated one-time keypair
+26. `sendAnonymousZap`: Prepare an anonymous zap to a profile or event, generating a lightning invoice for payment
+27. `postAnonymousNote`: Post an anonymous note using a randomly generated one-time keypair
 
 ### NIP-19 Entity Tools
-20. `convertNip19`: Convert between different NIP-19 entity formats (hex, npub, nsec, note, nprofile, nevent, naddr)
-21. `analyzeNip19`: Analyze and decode any NIP-19 entity to understand its type and contents
+28. `convertNip19`: Convert between different NIP-19 entity formats (hex, npub, nsec, note, nprofile, nevent, naddr)
+29. `analyzeNip19`: Analyze and decode any NIP-19 entity to understand its type and contents
 
 All tools fully support both hex public keys and npub format, with user-friendly display of Nostr identifiers.
 
