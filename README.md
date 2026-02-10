@@ -9,7 +9,7 @@ https://github.com/user-attachments/assets/1d2d47d0-c61b-44e2-85be-5985d2a81c64
 
 ## Features
 
-This server implements 17 tools for interacting with the Nostr network:
+This server implements 21 tools for interacting with the Nostr network:
 
 ### Reading & Querying Tools
 1. `getProfile`: Fetches a user's profile information by public key
@@ -18,25 +18,31 @@ This server implements 17 tools for interacting with the Nostr network:
 4. `getReceivedZaps`: Fetches zaps received by a user, including detailed payment information
 5. `getSentZaps`: Fetches zaps sent by a user, including detailed payment information
 6. `getAllZaps`: Fetches both sent and received zaps for a user, clearly labeled with direction and totals
+7. `queryEvents`: Generic event query tool supporting kinds/authors/ids/tags and timestamps
 
 ### Identity & Profile Management Tools
-7. `createKeypair`: Generate new Nostr keypairs in hex and/or npub/nsec format
-8. `createProfile`: Create a new Nostr profile (kind 0 event) with metadata
-9. `updateProfile`: Update an existing Nostr profile with new metadata
+8. `createKeypair`: Generate new Nostr keypairs in hex and/or npub/nsec format
+9. `createProfile`: Create a new Nostr profile (kind 0 event) with metadata
+10. `updateProfile`: Update an existing Nostr profile with new metadata
 
 ### Note Creation & Publishing Tools
-10. `createNote`: Create unsigned kind 1 note events with specified content and tags
-11. `signNote`: Sign note events with a private key, generating cryptographically valid signatures
-12. `publishNote`: Publish signed notes to specified Nostr relays
-13. `postNote`: All-in-one authenticated note posting using an existing private key (nsec/hex)
+11. `createNote`: Create unsigned kind 1 note events with specified content and tags
+12. `signNote`: Sign note events with a private key, generating cryptographically valid signatures
+13. `publishNote`: Publish signed notes to specified Nostr relays
+14. `postNote`: All-in-one authenticated note posting using an existing private key (nsec/hex)
+
+### Generic Event Tools
+15. `createNostrEvent`: Create unsigned Nostr events of any kind (provides low-level building block for NIPs beyond notes/profiles)
+16. `signNostrEvent`: Sign any unsigned Nostr event with a private key
+17. `publishNostrEvent`: Publish any signed Nostr event to relays
 
 ### Anonymous Tools
-14. `sendAnonymousZap`: Prepare an anonymous zap to a profile or event, generating a lightning invoice for payment
-15. `postAnonymousNote`: Post an anonymous note using a randomly generated one-time keypair
+18. `sendAnonymousZap`: Prepare an anonymous zap to a profile or event, generating a lightning invoice for payment
+19. `postAnonymousNote`: Post an anonymous note using a randomly generated one-time keypair
 
 ### NIP-19 Entity Tools
-16. `convertNip19`: Convert between different NIP-19 entity formats (hex, npub, nsec, note, nprofile, nevent, naddr)
-17. `analyzeNip19`: Analyze and decode any NIP-19 entity to understand its type and contents
+20. `convertNip19`: Convert between different NIP-19 entity formats (hex, npub, nsec, note, nprofile, nevent, naddr)
+21. `analyzeNip19`: Analyze and decode any NIP-19 entity to understand its type and contents
 
 All tools fully support both hex public keys and npub format, with user-friendly display of Nostr identifiers.
 
