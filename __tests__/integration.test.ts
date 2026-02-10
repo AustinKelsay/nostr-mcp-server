@@ -45,7 +45,6 @@ function createSignedEvent(privateKey: string, kind: number, content: string, ta
 
 describe('Nostr Integration Tests', () => {
   let relay: NostrRelay;
-  const testPort = 9700;
   let privateKey: string;
   let publicKey: string;
   
@@ -54,7 +53,8 @@ describe('Nostr Integration Tests', () => {
     publicKey = getPublicKey(privateKey);
     
     // Start the ephemeral relay
-    relay = new NostrRelay(testPort);
+    // Use port 0 to avoid CI/local port conflicts.
+    relay = new NostrRelay(0);
     await relay.start();
   });
   
