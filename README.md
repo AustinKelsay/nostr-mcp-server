@@ -9,7 +9,7 @@ https://github.com/user-attachments/assets/1d2d47d0-c61b-44e2-85be-5985d2a81c64
 
 ## Features
 
-This server implements 29 tools for interacting with the Nostr network:
+This server implements 38 tools for interacting with the Nostr network:
 
 ### Reading & Querying Tools
 1. `getProfile`: Fetches a user's profile information by public key
@@ -46,13 +46,24 @@ This server implements 29 tools for interacting with the Nostr network:
 24. `deleteEvent`: Delete one or more events (kind 5 deletion request)
 25. `replyToEvent`: Reply to an event with correct NIP-10 thread tags (kind 1)
 
+### Messaging Tools
+26. `encryptNip04`: Encrypt plaintext using NIP-04 (AES-CBC) for direct messages
+27. `decryptNip04`: Decrypt ciphertext using NIP-04 (AES-CBC) for direct messages
+28. `sendDmNip04`: Send a NIP-04 encrypted DM (kind 4)
+29. `getDmConversationNip04`: Fetch and optionally decrypt a NIP-04 DM conversation (kind 4)
+30. `encryptNip44`: Encrypt plaintext using NIP-44 (ChaCha20 + HMAC)
+31. `decryptNip44`: Decrypt ciphertext using NIP-44 (ChaCha20 + HMAC)
+32. `sendDmNip44`: Send a NIP-44 encrypted DM using NIP-17 gift wrap (kind 1059)
+33. `decryptDmNip44`: Decrypt a NIP-17 gift wrapped DM (kind 1059)
+34. `getDmInboxNip44`: Fetch and decrypt your NIP-44 DM inbox (NIP-17 gift wraps, kind 1059)
+
 ### Anonymous Tools
-26. `sendAnonymousZap`: Prepare an anonymous zap to a profile or event, generating a lightning invoice for payment
-27. `postAnonymousNote`: Post an anonymous note using a randomly generated one-time keypair
+35. `sendAnonymousZap`: Prepare an anonymous zap to a profile or event, generating a lightning invoice for payment
+36. `postAnonymousNote`: Post an anonymous note using a randomly generated one-time keypair
 
 ### NIP-19 Entity Tools
-28. `convertNip19`: Convert between different NIP-19 entity formats (hex, npub, nsec, note, nprofile, nevent, naddr)
-29. `analyzeNip19`: Analyze and decode any NIP-19 entity to understand its type and contents
+37. `convertNip19`: Convert between different NIP-19 entity formats (hex, npub, nsec, note, nprofile, nevent, naddr)
+38. `analyzeNip19`: Analyze and decode any NIP-19 entity to understand its type and contents
 
 All tools fully support both hex public keys and npub format, with user-friendly display of Nostr identifiers.
 

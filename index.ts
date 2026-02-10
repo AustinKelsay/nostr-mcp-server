@@ -86,6 +86,26 @@ import {
   replyToEventToolConfig,
   replyToEvent
 } from "./social/social-tools.js";
+import {
+  encryptNip04ToolConfig,
+  encryptNip04,
+  decryptNip04ToolConfig,
+  decryptNip04,
+  sendDmNip04ToolConfig,
+  sendDmNip04,
+  getDmConversationNip04ToolConfig,
+  getDmConversationNip04,
+  encryptNip44ToolConfig,
+  encryptNip44,
+  decryptNip44ToolConfig,
+  decryptNip44,
+  sendDmNip44ToolConfig,
+  sendDmNip44,
+  decryptDmNip44ToolConfig,
+  decryptDmNip44,
+  getDmInboxNip44ToolConfig,
+  getDmInboxNip44
+} from "./dm/dm-tools.js";
 
 // Set WebSocket implementation for Node.js (Bun has native WebSocket)
 if (typeof globalThis.WebSocket === 'undefined') {
@@ -1073,6 +1093,129 @@ server.tool(
   async ({ privateKey, target, content, tags, relays }) => {
     const res = await replyToEvent({ privateKey, target, content, tags, relays });
     return { content: [{ type: "text", text: res.message }] };
+  },
+);
+
+server.tool(
+  "encryptNip04",
+  "Encrypt plaintext using NIP-04 (AES-CBC) for direct messages",
+  encryptNip04ToolConfig,
+  async ({ privateKey, recipientPubkey, plaintext }) => {
+    const res = await encryptNip04({ privateKey, recipientPubkey, plaintext });
+    if (!res.success) return { content: [{ type: "text", text: res.message }] };
+    return { content: [{ type: "text", text: res.ciphertext ?? "" }] };
+  },
+);
+
+server.tool(
+  "decryptNip04",
+  "Decrypt ciphertext using NIP-04 (AES-CBC) for direct messages",
+  decryptNip04ToolConfig,
+  async ({ privateKey, senderPubkey, ciphertext }) => {
+    const res = await decryptNip04({ privateKey, senderPubkey, ciphertext });
+    if (!res.success) return { content: [{ type: "text", text: res.message }] };
+    return { content: [{ type: "text", text: res.plaintext ?? "" }] };
+  },
+);
+
+server.tool(
+  "sendDmNip04",
+  "Send a NIP-04 encrypted DM (kind 4)",
+  sendDmNip04ToolConfig,
+  async ({ privateKey, recipientPubkey, content, relays, createdAt }) => {
+    const res = await sendDmNip04({ privateKey, recipientPubkey, content, relays, createdAt });
+    return { content: [{ type: "text", text: res.message }] };
+  },
+);
+
+server.tool(
+  "getDmConversationNip04",
+  "Fetch and optionally decrypt a NIP-04 DM conversation (kind 4) between you and a peer",
+  getDmConversationNip04ToolConfig,
+  async ({ privateKey, peerPubkey, relays, since, until, limit, decrypt }) => {
+    const res = await getDmConversationNip04({ privateKey, peerPubkey, relays, since, until, limit, decrypt });
+    if (!res.success) return { content: [{ type: "text", text: res.message }] };
+
+    const msgs = res.messages ?? [];
+    const formatted =
+      msgs.length === 0
+        ? "No messages."
+        : msgs
+            .map((m) => {
+              const ts = new Date(m.created_at * 1000).toLocaleString();
+              const who = `${m.direction.toUpperCase()} ${formatPubkey(m.pubkey, true)}`;
+              return `[${ts}] ${who}\n${m.content}\n---`;
+            })
+            .join("\n");
+
+    return { content: [{ type: "text", text: `${res.message}\n\n${formatted}` }] };
+  },
+);
+
+server.tool(
+  "encryptNip44",
+  "Encrypt plaintext using NIP-44 (ChaCha20 + HMAC)",
+  encryptNip44ToolConfig,
+  async ({ privateKey, recipientPubkey, plaintext, version }) => {
+    const res = await encryptNip44({ privateKey, recipientPubkey, plaintext, version });
+    if (!res.success) return { content: [{ type: "text", text: res.message }] };
+    return { content: [{ type: "text", text: res.ciphertext ?? "" }] };
+  },
+);
+
+server.tool(
+  "decryptNip44",
+  "Decrypt ciphertext using NIP-44 (ChaCha20 + HMAC)",
+  decryptNip44ToolConfig,
+  async ({ privateKey, senderPubkey, ciphertext }) => {
+    const res = await decryptNip44({ privateKey, senderPubkey, ciphertext });
+    if (!res.success) return { content: [{ type: "text", text: res.message }] };
+    return { content: [{ type: "text", text: res.plaintext ?? "" }] };
+  },
+);
+
+server.tool(
+  "sendDmNip44",
+  "Send a NIP-44 encrypted DM using NIP-17 gift wrap (kind 1059)",
+  sendDmNip44ToolConfig,
+  async ({ privateKey, recipientPubkey, content, relays }) => {
+    const res = await sendDmNip44({ privateKey, recipientPubkey, content, relays });
+    return { content: [{ type: "text", text: res.message }] };
+  },
+);
+
+server.tool(
+  "decryptDmNip44",
+  "Decrypt a NIP-17 gift wrapped DM (kind 1059) to reveal the inner kind 14 rumor",
+  decryptDmNip44ToolConfig,
+  async ({ privateKey, giftWrapEvent }) => {
+    const res = await decryptDmNip44({ privateKey, giftWrapEvent: giftWrapEvent as any });
+    if (!res.success) return { content: [{ type: "text", text: res.message }] };
+    return { content: [{ type: "text", text: JSON.stringify(res.rumor ?? {}, null, 2) }] };
+  },
+);
+
+server.tool(
+  "getDmInboxNip44",
+  "Fetch and decrypt your NIP-44 DM inbox (NIP-17 gift wraps, kind 1059)",
+  getDmInboxNip44ToolConfig,
+  async ({ privateKey, relays, since, until, limit }) => {
+    const res = await getDmInboxNip44({ privateKey, relays, since, until, limit });
+    if (!res.success) return { content: [{ type: "text", text: res.message }] };
+
+    const msgs = res.messages ?? [];
+    const formatted =
+      msgs.length === 0
+        ? "No messages."
+        : msgs
+            .map((m) => {
+              const ts = new Date(m.created_at * 1000).toLocaleString();
+              const from = m.from ? formatPubkey(m.from, true) : "unknown";
+              return `[${ts}] FROM ${from}\n${m.content}\n---`;
+            })
+            .join("\n");
+
+    return { content: [{ type: "text", text: `${res.message}\n\n${formatted}` }] };
   },
 );
 
