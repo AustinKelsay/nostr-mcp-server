@@ -243,7 +243,13 @@ export async function queryEvents(
   }
 
   const events = wsResult.events;
-  events.sort((a, b) => b.created_at - a.created_at);
+  // Deterministic ordering: newest first, then stable tie-break on id.
+  events.sort((a, b) => {
+    const at = typeof a?.created_at === "number" ? a.created_at : 0;
+    const bt = typeof b?.created_at === "number" ? b.created_at : 0;
+    if (bt !== at) return bt - at;
+    return String(b?.id ?? "").localeCompare(String(a?.id ?? ""));
+  });
   return {
     success: true,
     message: `Found ${events.length} events.`,

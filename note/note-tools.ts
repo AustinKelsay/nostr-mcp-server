@@ -17,6 +17,8 @@ export const getProfileToolConfig = {
 export const getKind1NotesToolConfig = {
   pubkey: z.string().describe("Public key of the Nostr user (hex format or npub format)"),
   limit: z.number().min(1).max(100).default(10).describe("Maximum number of notes to fetch"),
+  since: z.number().int().nonnegative().optional().describe("Optional start timestamp (unix seconds)"),
+  until: z.number().int().nonnegative().optional().describe("Optional end timestamp (unix seconds)"),
   relays: z.array(z.string()).optional().describe("Optional list of relays to query"),
 };
 
@@ -24,6 +26,8 @@ export const getKind1NotesToolConfig = {
 export const getLongFormNotesToolConfig = {
   pubkey: z.string().describe("Public key of the Nostr user (hex format or npub format)"),
   limit: z.number().min(1).max(100).default(10).describe("Maximum number of notes to fetch"),
+  since: z.number().int().nonnegative().optional().describe("Optional start timestamp (unix seconds)"),
+  until: z.number().int().nonnegative().optional().describe("Optional end timestamp (unix seconds)"),
   relays: z.array(z.string()).optional().describe("Optional list of relays to query"),
 };
 

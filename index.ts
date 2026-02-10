@@ -179,7 +179,7 @@ server.tool(
   "getKind1Notes",
   "Get text notes (kind 1) by public key",
   getKind1NotesToolConfig,
-  async ({ pubkey, limit, relays }, extra) => {
+  async ({ pubkey, limit, since, until, relays }, extra) => {
     // Convert npub to hex if needed
     const hexPubkey = npubToHex(pubkey);
     if (!hexPubkey) {
@@ -210,6 +210,8 @@ server.tool(
           kinds: [KINDS.Text],
           authors: [hexPubkey],
           limit,
+          ...(typeof since === "number" ? { since } : {}),
+          ...(typeof until === "number" ? { until } : {}),
         } as NostrFilter,
         { timeout: QUERY_TIMEOUT }
       );
@@ -225,8 +227,11 @@ server.tool(
         };
       }
       
-      // Sort notes by created_at in descending order (newest first)
-      notes.sort((a, b) => b.created_at - a.created_at);
+      // Deterministic ordering: newest first, then stable tie-break on id.
+      notes.sort((a, b) => {
+        if (b.created_at !== a.created_at) return b.created_at - a.created_at;
+        return String(b.id ?? "").localeCompare(String(a.id ?? ""));
+      });
       
       const formattedNotes = notes.map(formatNote).join("\n");
       
@@ -260,7 +265,7 @@ server.tool(
   "getReceivedZaps",
   "Get zaps received by a public key",
   getReceivedZapsToolConfig,
-  async ({ pubkey, limit, relays, validateReceipts, debug }) => {
+  async ({ pubkey, limit, since, until, relays, validateReceipts, debug }) => {
     // Convert npub to hex if needed
     const hexPubkey = npubToHex(pubkey);
     if (!hexPubkey) {
@@ -291,6 +296,8 @@ server.tool(
           kinds: [KINDS.ZapReceipt],
           "#p": [hexPubkey], // lowercase 'p' for recipient
           limit: Math.ceil(limit * 1.5), // Fetch a bit more to account for potential invalid zaps
+          ...(typeof since === "number" ? { since } : {}),
+          ...(typeof until === "number" ? { until } : {}),
         } as NostrFilter,
         { timeout: QUERY_TIMEOUT }
       );
@@ -363,8 +370,11 @@ server.tool(
         };
       }
       
-      // Sort zaps by created_at in descending order (newest first)
-      processedZaps.sort((a, b) => b.created_at - a.created_at);
+      // Deterministic ordering: newest first, then stable tie-break on id.
+      processedZaps.sort((a, b) => {
+        if (b.created_at !== a.created_at) return b.created_at - a.created_at;
+        return String(b.id ?? "").localeCompare(String(a.id ?? ""));
+      });
       
       // Limit to requested number
       processedZaps = processedZaps.slice(0, limit);
@@ -404,7 +414,7 @@ server.tool(
   "getSentZaps",
   "Get zaps sent by a public key",
   getSentZapsToolConfig,
-  async ({ pubkey, limit, relays, validateReceipts, debug }) => {
+  async ({ pubkey, limit, since, until, relays, validateReceipts, debug }) => {
     // Convert npub to hex if needed
     const hexPubkey = npubToHex(pubkey);
     if (!hexPubkey) {
@@ -439,6 +449,8 @@ server.tool(
             kinds: [KINDS.ZapReceipt],
             "#P": [hexPubkey], // uppercase 'P' for sender
             limit: Math.ceil(limit * 1.5), // Fetch a bit more to account for potential invalid zaps
+            ...(typeof since === "number" ? { since } : {}),
+            ...(typeof until === "number" ? { until } : {}),
           } as NostrFilter,
           { timeout: QUERY_TIMEOUT }
         );
@@ -457,6 +469,8 @@ server.tool(
           {
             kinds: [KINDS.ZapReceipt],
             limit: Math.max(limit * 10, 100), // Get a larger sample
+            ...(typeof since === "number" ? { since } : {}),
+            ...(typeof until === "number" ? { until } : {}),
           } as NostrFilter,
           { timeout: QUERY_TIMEOUT }
         );
@@ -548,8 +562,11 @@ server.tool(
         };
       }
       
-      // Sort zaps by created_at in descending order (newest first)
-      processedZaps.sort((a, b) => b.created_at - a.created_at);
+      // Deterministic ordering: newest first, then stable tie-break on id.
+      processedZaps.sort((a, b) => {
+        if (b.created_at !== a.created_at) return b.created_at - a.created_at;
+        return String(b.id ?? "").localeCompare(String(a.id ?? ""));
+      });
       
       // Limit to requested number
       processedZaps = processedZaps.slice(0, limit);
@@ -595,7 +612,7 @@ server.tool(
   "getAllZaps",
   "Get all zaps (sent and received) for a public key",
   getAllZapsToolConfig,
-  async ({ pubkey, limit, relays, validateReceipts, debug }) => {
+  async ({ pubkey, limit, since, until, relays, validateReceipts, debug }) => {
     // Convert npub to hex if needed
     const hexPubkey = npubToHex(pubkey);
     if (!hexPubkey) {
@@ -630,6 +647,8 @@ server.tool(
           kinds: [KINDS.ZapReceipt],
           "#p": [hexPubkey],
             limit: Math.ceil(limit * 1.5),
+            ...(typeof since === "number" ? { since } : {}),
+            ...(typeof until === "number" ? { until } : {}),
         } as NostrFilter,
         { timeout: QUERY_TIMEOUT }
         ),
@@ -641,6 +660,8 @@ server.tool(
           kinds: [KINDS.ZapReceipt],
           "#P": [hexPubkey],
             limit: Math.ceil(limit * 1.5),
+            ...(typeof since === "number" ? { since } : {}),
+            ...(typeof until === "number" ? { until } : {}),
         } as NostrFilter,
         { timeout: QUERY_TIMEOUT }
         )
@@ -654,6 +675,8 @@ server.tool(
           {
             kinds: [KINDS.ZapReceipt],
               limit: Math.max(limit * 5, 50),
+              ...(typeof since === "number" ? { since } : {}),
+              ...(typeof until === "number" ? { until } : {}),
           } as NostrFilter,
           { timeout: QUERY_TIMEOUT }
           )
@@ -759,8 +782,11 @@ server.tool(
         };
       }
       
-      // Sort zaps by created_at in descending order (newest first)
-      processedZaps.sort((a, b) => b.created_at - a.created_at);
+      // Deterministic ordering: newest first, then stable tie-break on id.
+      processedZaps.sort((a, b) => {
+        if (b.created_at !== a.created_at) return b.created_at - a.created_at;
+        return String(b.id ?? "").localeCompare(String(a.id ?? ""));
+      });
       
       // Calculate statistics: sent, received, and self zaps
       const sentZaps = processedZaps.filter(zap => zap.direction === 'sent');
@@ -818,7 +844,7 @@ server.tool(
   "getLongFormNotes",
   "Get long-form notes (kind 30023) by public key",
   getLongFormNotesToolConfig,
-  async ({ pubkey, limit, relays }, extra) => {
+  async ({ pubkey, limit, since, until, relays }, extra) => {
     // Convert npub to hex if needed
     const hexPubkey = npubToHex(pubkey);
     if (!hexPubkey) {
@@ -849,6 +875,8 @@ server.tool(
           kinds: [30023], // NIP-23 long-form content
           authors: [hexPubkey],
           limit,
+          ...(typeof since === "number" ? { since } : {}),
+          ...(typeof until === "number" ? { until } : {}),
         } as NostrFilter,
         { timeout: QUERY_TIMEOUT }
       );
@@ -864,8 +892,11 @@ server.tool(
         };
       }
       
-      // Sort notes by created_at in descending order (newest first)
-      notes.sort((a, b) => b.created_at - a.created_at);
+      // Deterministic ordering: newest first, then stable tie-break on id.
+      notes.sort((a, b) => {
+        if (b.created_at !== a.created_at) return b.created_at - a.created_at;
+        return String(b.id ?? "").localeCompare(String(a.id ?? ""));
+      });
       
       // Format each note with enhanced metadata
       const formattedNotes = notes.map(note => {
