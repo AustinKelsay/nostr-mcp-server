@@ -56,6 +56,17 @@ import {
   analyzeNip19ToolConfig,
   formatAnalysisResult
 } from "./utils/nip19-tools.js";
+import {
+  queryEventsToolConfig,
+  queryEvents,
+  formatEventsList,
+  createNostrEventToolConfig,
+  createNostrEvent,
+  signNostrEventToolConfig,
+  signNostrEvent,
+  publishNostrEventToolConfig,
+  publishNostrEvent
+} from "./event/event-tools.js";
 
 // Set WebSocket implementation for Node.js (Bun has native WebSocket)
 if (typeof globalThis.WebSocket === 'undefined') {
@@ -889,6 +900,37 @@ server.tool(
 );
 
 server.tool(
+  "queryEvents",
+  "Query Nostr events using a generic filter (kinds/authors/ids/tags/timestamps)",
+  queryEventsToolConfig,
+  async ({ relays, kinds, authors, ids, since, until, limit, tags, search }) => {
+    const result = await queryEvents({ relays, kinds, authors, ids, since, until, limit, tags, search });
+
+    if (!result.success) {
+      return {
+        content: [{ type: "text", text: result.message }],
+      };
+    }
+
+    const events = result.events ?? [];
+    if (events.length === 0) {
+      return {
+        content: [{ type: "text", text: "No events found." }],
+      };
+    }
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: `${result.message}\n\n${formatEventsList(events)}`,
+        },
+      ],
+    };
+  },
+);
+
+server.tool(
   "sendAnonymousZap",
   "Prepare an anonymous zap to a profile or event",
   sendAnonymousZapToolConfig,
@@ -1504,6 +1546,64 @@ server.tool(
         ],
       };
     }
+  },
+);
+
+// Register generic event creation/signing/publishing tools
+server.tool(
+  "createNostrEvent",
+  "Create an unsigned Nostr event of any kind (requires pubkey or privateKey to derive pubkey)",
+  createNostrEventToolConfig,
+  async ({ kind, content, tags, createdAt, pubkey, privateKey }) => {
+    const result = await createNostrEvent({ kind, content, tags, createdAt, pubkey, privateKey });
+
+    if (!result.success) {
+      return { content: [{ type: "text", text: result.message }] };
+    }
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: `${result.message}\n\nUnsigned Event:\n${JSON.stringify(result.event, null, 2)}`,
+        },
+      ],
+    };
+  },
+);
+
+server.tool(
+  "signNostrEvent",
+  "Sign an unsigned Nostr event with a private key",
+  signNostrEventToolConfig,
+  async ({ privateKey, event }) => {
+    const result = await signNostrEvent({ privateKey, event: event as any });
+
+    if (!result.success) {
+      return { content: [{ type: "text", text: result.message }] };
+    }
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: `${result.message}\n\nSigned Event:\n${JSON.stringify(result.signedEvent, null, 2)}`,
+        },
+      ],
+    };
+  },
+);
+
+server.tool(
+  "publishNostrEvent",
+  "Publish a signed Nostr event to relays",
+  publishNostrEventToolConfig,
+  async ({ signedEvent, relays }) => {
+    const result = await publishNostrEvent({ signedEvent: signedEvent as any, relays });
+
+    return {
+      content: [{ type: "text", text: result.message }],
+    };
   },
 );
 
