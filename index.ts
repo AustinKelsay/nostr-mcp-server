@@ -11,7 +11,8 @@ import {
   QUERY_TIMEOUT,
   getFreshPool,
   npubToHex,
-  formatPubkey
+  formatPubkey,
+  formatContacts
 } from "./utils/index.js";
 import {
   ZapReceipt,
@@ -83,8 +84,7 @@ import {
   deleteEventToolConfig,
   deleteEvent,
   replyToEventToolConfig,
-  replyToEvent,
-  formatContacts
+  replyToEvent
 } from "./social/social-tools.js";
 
 // Set WebSocket implementation for Node.js (Bun has native WebSocket)

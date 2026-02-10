@@ -13,6 +13,8 @@ import {
   DEFAULT_RELAYS,
   NostrEvent,
   NostrFilter,
+  KINDS,
+  formatContacts,
   formatPubkey,
   normalizePrivateKey,
   npubToHex,
@@ -51,7 +53,15 @@ async function getLatestEventForAuthor(params: {
     limit: 10,
   });
   if (!res.success) return null;
-  const events = res.events ?? [];
+  const events = (res.events ?? []).slice();
+  // queryEvents relay ordering is not guaranteed; pick the newest deterministically.
+  events.sort((a, b) => {
+    const at = typeof a?.created_at === "number" ? a.created_at : 0;
+    const bt = typeof b?.created_at === "number" ? b.created_at : 0;
+    if (bt !== at) return bt - at;
+    // Stable tie-breaker for same timestamps.
+    return String(b?.id ?? "").localeCompare(String(a?.id ?? ""));
+  });
   return events.length ? events[0] : null;
 }
 
@@ -89,7 +99,7 @@ export async function getContactList(params: {
   }
 
   const relays = params.relays?.length ? params.relays : DEFAULT_RELAYS;
-  const evt = await getLatestEventForAuthor({ relays, kind: 3, authorHex });
+  const evt = await getLatestEventForAuthor({ relays, kind: KINDS.CONTACT_LIST, authorHex });
 
   if (!evt) {
     return { success: true, message: `No contact list (kind 3) found for ${formatPubkey(authorHex)}.`, contacts: [] };
@@ -130,7 +140,7 @@ async function upsertContactList(params: {
   const privateKeyHex = normalizePrivateKey(params.privateKey);
   const authorHex = pubkeyFromPrivateKey(privateKeyHex);
 
-  const existing = await getLatestEventForAuthor({ relays, kind: 3, authorHex });
+  const existing = await getLatestEventForAuthor({ relays, kind: KINDS.CONTACT_LIST, authorHex });
   const existingContent = existing?.content ?? "";
   const existingContacts = existing ? (parseContactsFromEvent(existing as any) as any[]) : [];
 
@@ -238,7 +248,7 @@ export async function reactToEvent(params: {
 
   const unsigned = createEvent(
     {
-      kind: 7,
+      kind: KINDS.REACTION,
       content: params.reaction ?? "+",
       tags: [
         ["e", target.id],
@@ -279,7 +289,7 @@ export async function repostEvent(params: {
 
   const unsigned = createEvent(
     {
-      kind: 6,
+      kind: KINDS.REPOST,
       content: JSON.stringify(target),
       tags: [
         ["e", target.id],
@@ -322,7 +332,7 @@ export async function deleteEvent(params: {
   const tags = targetsHex.map((id) => ["e", id]);
   const unsigned = createEvent(
     {
-      kind: 5,
+      kind: KINDS.DELETE,
       content: params.reason ?? "",
       tags,
     },
@@ -374,7 +384,7 @@ export async function replyToEvent(params: {
 
   const unsigned = createEvent(
     {
-      kind: 1,
+      kind: KINDS.TEXT,
       content: params.content,
       tags: [...nip10Tags, ...pTags, ...(params.tags ?? [])],
     },
@@ -387,16 +397,4 @@ export async function replyToEvent(params: {
   const pubRes = await publishNostrEvent({ signedEvent: signedRes.signedEvent, relays });
   if (!pubRes.success) return { success: false, message: pubRes.message };
   return { success: true, message: pubRes.message, eventId: signedRes.signedEvent.id };
-}
-
-export function formatContacts(contacts: any[]): string {
-  if (!contacts.length) return "No contacts.";
-  return contacts
-    .map((c) => {
-      const pk = typeof c.pubkey === "string" ? formatPubkey(c.pubkey) : "unknown";
-      const relay = c.relay ? ` relay=${c.relay}` : "";
-      const pet = c.petname ? ` petname=${c.petname}` : "";
-      return `- ${pk}${relay}${pet}`;
-    })
-    .join("\n");
 }

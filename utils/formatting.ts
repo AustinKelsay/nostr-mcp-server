@@ -32,4 +32,18 @@ export function formatPubkey(pubkey: string, useShortFormat = false): string {
     console.error('Error formatting pubkey:', error);
     return 'error';
   }
-} 
+}
+
+export function formatContacts(
+  contacts: { pubkey: string; relay?: string; petname?: string }[] = [],
+): string {
+  if (!contacts.length) return "No contacts.";
+  return contacts
+    .map((c) => {
+      const pk = typeof c?.pubkey === "string" ? formatPubkey(c.pubkey) : "unknown";
+      const relay = c?.relay ? ` relay=${c.relay}` : "";
+      const pet = c?.petname ? ` petname=${c.petname}` : "";
+      return `- ${pk}${relay}${pet}`;
+    })
+    .join("\n");
+}
