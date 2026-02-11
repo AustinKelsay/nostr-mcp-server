@@ -2,7 +2,7 @@ import { z } from "zod";
 import { schnorr } from "@noble/curves/secp256k1";
 import { createEvent } from "snstr";
 
-import { DEFAULT_RELAYS, KINDS, NostrEvent, normalizePrivateKey, npubToHex } from "../utils/index.js";
+import { DEFAULT_RELAYS, KINDS, NostrEvent, formatRelayList, normalizePrivateKey, npubToHex } from "../utils/index.js";
 import { publishNostrEvent, queryEvents, signNostrEvent } from "../event/event-tools.js";
 
 function pubkeyFromPrivateKey(privateKeyHex: string): string {
@@ -39,15 +39,6 @@ function parseRelayListFromEvent(evt: NostrEvent): { url: string; read: boolean;
     map.set(url, next);
   }
   return Array.from(map.values());
-}
-
-function formatRelayList(relays: { url: string; read: boolean; write: boolean }[]): string {
-  if (!relays.length) return "No relays.";
-  return relays
-    .slice()
-    .sort((a, b) => a.url.localeCompare(b.url))
-    .map((r) => `- ${r.url} (${r.read ? "read" : ""}${r.read && r.write ? "," : ""}${r.write ? "write" : ""})`)
-    .join("\n");
 }
 
 async function getLatestEventForAuthor(params: {
@@ -120,8 +111,14 @@ export async function setRelayList(params: {
   relays?: string[];
 }): Promise<{ success: boolean; message: string; eventId?: string }> {
   const publishRelays = params.relays?.length ? params.relays : DEFAULT_RELAYS;
-  const privateKeyHex = normalizePrivateKey(params.privateKey);
-  const authorHex = pubkeyFromPrivateKey(privateKeyHex);
+  let privateKeyHex: string;
+  let authorHex: string;
+  try {
+    privateKeyHex = normalizePrivateKey(params.privateKey);
+    authorHex = pubkeyFromPrivateKey(privateKeyHex);
+  } catch (error) {
+    return { success: false, message: error instanceof Error ? error.message : "Invalid private key." };
+  }
 
   const cleaned = params.relayList
     .map((r) => ({
@@ -169,6 +166,3 @@ export async function setRelayList(params: {
 
   return { success: true, message: `Relay list published.\n\n${formatRelayList(parseRelayListFromEvent(signedRes.signedEvent))}\n\n${pubRes.message}`, eventId: signedRes.signedEvent.id };
 }
-
-export { formatRelayList };
-

@@ -12,7 +12,8 @@ import {
   getFreshPool,
   npubToHex,
   formatPubkey,
-  formatContacts
+  formatContacts,
+  formatRelayList
 } from "./utils/index.js";
 import {
   ZapReceipt,
@@ -72,8 +73,7 @@ import {
   getRelayListToolConfig,
   getRelayList,
   setRelayListToolConfig,
-  setRelayList,
-  formatRelayList
+  setRelayList
 } from "./relay/relay-tools.js";
 import {
   getContactListToolConfig,

@@ -49,6 +49,17 @@ export function formatContacts(
     .join("\n");
 }
 
+export function formatRelayList(
+  relays: { url: string; read: boolean; write: boolean }[],
+): string {
+  if (!relays.length) return "No relays.";
+  return relays
+    .slice()
+    .sort((a, b) => a.url.localeCompare(b.url))
+    .map((r) => `- ${r.url} (${r.read ? "read" : ""}${r.read && r.write ? "," : ""}${r.write ? "write" : ""})`)
+    .join("\n");
+}
+
 export function formatEvent(evt: NostrEvent): string {
   const created = new Date(evt.created_at * 1000).toLocaleString();
   const author = formatPubkey(evt.pubkey, true);

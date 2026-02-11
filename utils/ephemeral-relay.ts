@@ -3,6 +3,7 @@ import { schnorr } from '@noble/curves/secp256k1'
 import { sha256 } from '@noble/hashes/sha256'
 import EventEmitter from 'events'
 import { WebSocket, WebSocketServer } from 'ws'
+import { KINDS } from './constants.js'
 
 /* ================ [ Configuration ] ================ */
 
@@ -511,7 +512,7 @@ class ClientSession {
   _onauth(event: SignedEvent) {
     try {
       // NIP-42 AUTH: kind 22242 with "challenge" tag matching relay-provided challenge.
-      if (event.kind !== 22242) {
+      if (event.kind !== KINDS.AUTH) {
         this.send(['OK', event.id, false, 'invalid: wrong auth kind'])
         return
       }

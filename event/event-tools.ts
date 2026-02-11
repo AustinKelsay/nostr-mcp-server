@@ -259,7 +259,17 @@ export async function queryEvents(
 
   if (params.search) (filter as any).search = params.search;
 
-  const authPrivateKeyHex = params.authPrivateKey ? normalizePrivateKey(params.authPrivateKey) : undefined;
+  let authPrivateKeyHex: string | undefined;
+  if (params.authPrivateKey) {
+    try {
+      authPrivateKeyHex = normalizePrivateKey(params.authPrivateKey);
+    } catch (error) {
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : "Invalid auth private key.",
+      };
+    }
+  }
   const wsResult = await queryEventsOverWebSocket(relays, filter, QUERY_TIMEOUT, authPrivateKeyHex);
   if (!wsResult.success) {
     return {
@@ -405,7 +415,17 @@ export async function publishNostrEvent(params: {
   authPrivateKey?: string;
 }): Promise<{ success: boolean; message: string; acceptedBy?: number; relayCount?: number }> {
   const relays = params.relays?.length ? params.relays : DEFAULT_RELAYS;
-  const authPrivateKeyHex = params.authPrivateKey ? normalizePrivateKey(params.authPrivateKey) : undefined;
+  let authPrivateKeyHex: string | undefined;
+  if (params.authPrivateKey) {
+    try {
+      authPrivateKeyHex = normalizePrivateKey(params.authPrivateKey);
+    } catch (error) {
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : "Invalid auth private key.",
+      };
+    }
+  }
 
   if (relays.length === 0) {
     return { success: true, message: "No relays specified; nothing was published.", acceptedBy: 0, relayCount: 0 };
