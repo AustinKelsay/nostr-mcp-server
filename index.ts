@@ -1157,8 +1157,8 @@ server.tool(
   "sendDmNip04",
   "Send a NIP-04 encrypted DM (kind 4)",
   sendDmNip04ToolConfig,
-  async ({ privateKey, recipientPubkey, content, relays, createdAt }) => {
-    const res = await sendDmNip04({ privateKey, recipientPubkey, content, relays, createdAt });
+  async ({ privateKey, recipientPubkey, content, relays, createdAt, authPrivateKey }) => {
+    const res = await sendDmNip04({ privateKey, recipientPubkey, content, relays, createdAt, authPrivateKey });
     return { content: [{ type: "text", text: res.message }] };
   },
 );
@@ -1167,8 +1167,8 @@ server.tool(
   "getDmConversationNip04",
   "Fetch and optionally decrypt a NIP-04 DM conversation (kind 4) between you and a peer",
   getDmConversationNip04ToolConfig,
-  async ({ privateKey, peerPubkey, relays, since, until, limit, decrypt }) => {
-    const res = await getDmConversationNip04({ privateKey, peerPubkey, relays, since, until, limit, decrypt });
+  async ({ privateKey, peerPubkey, relays, since, until, limit, decrypt, authPrivateKey }) => {
+    const res = await getDmConversationNip04({ privateKey, peerPubkey, relays, since, until, limit, decrypt, authPrivateKey });
     if (!res.success) return { content: [{ type: "text", text: res.message }] };
 
     const msgs = res.messages ?? [];
@@ -1213,8 +1213,8 @@ server.tool(
   "sendDmNip44",
   "Send a NIP-44 encrypted DM using NIP-17 gift wrap (kind 1059)",
   sendDmNip44ToolConfig,
-  async ({ privateKey, recipientPubkey, content, relays }) => {
-    const res = await sendDmNip44({ privateKey, recipientPubkey, content, relays });
+  async ({ privateKey, recipientPubkey, content, relays, authPrivateKey }) => {
+    const res = await sendDmNip44({ privateKey, recipientPubkey, content, relays, authPrivateKey });
     return { content: [{ type: "text", text: res.message }] };
   },
 );
@@ -1234,8 +1234,8 @@ server.tool(
   "getDmInboxNip44",
   "Fetch and decrypt your NIP-44 DM inbox (NIP-17 gift wraps, kind 1059)",
   getDmInboxNip44ToolConfig,
-  async ({ privateKey, relays, since, until, limit }) => {
-    const res = await getDmInboxNip44({ privateKey, relays, since, until, limit });
+  async ({ privateKey, authPrivateKey, relays, since, until, limit }) => {
+    const res = await getDmInboxNip44({ privateKey, authPrivateKey, relays, since, until, limit });
     if (!res.success) return { content: [{ type: "text", text: res.message }] };
 
     const msgs = res.messages ?? [];
