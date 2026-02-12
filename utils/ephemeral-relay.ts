@@ -3,6 +3,7 @@ import { schnorr } from '@noble/curves/secp256k1'
 import { sha256 } from '@noble/hashes/sha256'
 import EventEmitter from 'events'
 import { WebSocket, WebSocketServer } from 'ws'
+import { KINDS } from './constants.js'
 
 /* ================ [ Configuration ] ================ */
 
@@ -81,6 +82,7 @@ export class NostrRelay {
   private _port: number
   private readonly _purge: number | null
   private readonly _subs: Map<string, Subscription>
+  private readonly _requireAuth: boolean
 
   private _wss: WebSocketServer | null
   private _cache: SignedEvent[]
@@ -88,7 +90,7 @@ export class NostrRelay {
 
   public conn: number
 
-  constructor(port: number, purge_ival?: number) {
+  constructor(port: number, purge_ival?: number, requireAuth?: boolean) {
     this._cache = []
     this._emitter = new EventEmitter()
     this._port = port
@@ -96,6 +98,7 @@ export class NostrRelay {
     this._subs = new Map()
     this._wss = null
     this.conn = 0
+    this._requireAuth = requireAuth ?? false
   }
 
   get cache() {
@@ -108,6 +111,10 @@ export class NostrRelay {
 
   get port() {
     return this._port
+  }
+
+  get requireAuth() {
+    return this._requireAuth
   }
 
   get url() {
@@ -256,6 +263,8 @@ class ClientSession {
   private readonly _relay: NostrRelay
   private readonly _socket: WebSocket
   private readonly _subs: Set<string>
+  private _authed: boolean
+  private _authChallenge: string
 
   constructor(
     relay: NostrRelay,
@@ -265,6 +274,8 @@ class ClientSession {
     this._sid = Math.random().toString().slice(2, 8)
     this._socket = socket
     this._subs = new Set()
+    this._authed = !relay.requireAuth
+    this._authChallenge = `challenge-${Math.random().toString(16).slice(2)}`
 
     this.log.client('client connected')
   }
@@ -311,7 +322,7 @@ class ClientSession {
       // Handle NIP-46 messages (which might not follow standard Nostr format)
       if (parsed && Array.isArray(parsed) && parsed.length > 0) {
         // Check if it's a standard Nostr message
-        if (['EVENT', 'REQ', 'CLOSE'].includes(parsed[0])) {
+        if (['EVENT', 'REQ', 'CLOSE', 'AUTH'].includes(parsed[0])) {
           // Handle standard Nostr messages
           [verb, ...payload] = parsed;
           
@@ -338,6 +349,13 @@ class ClientSession {
                 return this.send(['NOTICE', 'invalid: CLOSE message missing params'])
               }
               return this._onclose(parsed[1]);
+
+            case 'AUTH':
+              if (parsed.length !== 2) {
+                DEBUG && console.log(`[ ${this._sid} ]`, 'AUTH message missing params:', parsed)
+                return this.send(['NOTICE', 'invalid: AUTH message missing params'])
+              }
+              return this._onauth(parsed[1]);
           }
         }
         else {
@@ -375,6 +393,11 @@ class ClientSession {
 
   _onevent(event: SignedEvent) {
     try {
+      if (this.relay.requireAuth && !this._authed) {
+        this.send(['AUTH', this._authChallenge])
+        return
+      }
+
       // Special handling for NIP-46 events (kind 24133)
       if (event.kind === 24133) {
         this.relay.store(event);
@@ -438,6 +461,11 @@ class ClientSession {
     sub_id: string,
     filters: EventFilter[]
   ): void {
+    if (this.relay.requireAuth && !this._authed) {
+      this.send(['AUTH', this._authChallenge])
+      return
+    }
+
     if (filters.length === 0) {
       this.log.client('request has no filters')
       return
@@ -479,6 +507,32 @@ class ClientSession {
     
     // Send EOSE
     this.send(['EOSE', sub_id])
+  }
+
+  _onauth(event: SignedEvent) {
+    try {
+      // NIP-42 AUTH: kind 22242 with "challenge" tag matching relay-provided challenge.
+      if (event.kind !== KINDS.AUTH) {
+        this.send(['OK', event.id, false, 'invalid: wrong auth kind'])
+        return
+      }
+
+      if (!verify_event(event)) {
+        this.send(['OK', event.id, false, 'invalid: auth failed validation'])
+        return
+      }
+
+      const challengeTag = event.tags.find(t => Array.isArray(t) && t[0] === 'challenge' && t.length > 1)
+      if (!challengeTag || challengeTag[1] !== this._authChallenge) {
+        this.send(['OK', event.id, false, 'invalid: auth challenge mismatch'])
+        return
+      }
+
+      this._authed = true
+      this.send(['OK', event.id, true, ''])
+    } catch (e) {
+      DEBUG && console.error(`[ client ][ ${this._sid} ]`, 'error handling AUTH:', e)
+    }
   }
 
   get log() {
