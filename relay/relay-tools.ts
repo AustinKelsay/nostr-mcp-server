@@ -46,7 +46,7 @@ async function getLatestEventForAuthor(params: {
   kind: number;
   authorHex: string;
   authPrivateKey?: string;
-}): Promise<NostrEvent | null> {
+}): Promise<{ success: boolean; event: NostrEvent | null; message?: string }> {
   const res = await queryEvents({
     relays: params.relays,
     authPrivateKey: params.authPrivateKey,
@@ -54,13 +54,13 @@ async function getLatestEventForAuthor(params: {
     authors: [params.authorHex],
     limit: 20,
   });
-  if (!res.success) return null;
+  if (!res.success) return { success: false, event: null, message: res.message };
   const events = (res.events ?? []).slice();
   events.sort((a, b) => {
     if (b.created_at !== a.created_at) return b.created_at - a.created_at;
     return String(b.id ?? "").localeCompare(String(a.id ?? ""));
   });
-  return events.length ? events[0] : null;
+  return { success: true, event: events.length ? events[0] : null };
 }
 
 export const getRelayListToolConfig = {
@@ -78,12 +78,16 @@ export async function getRelayList(params: {
   if (!authorHex) return { success: false, message: "Invalid public key format. Please provide a valid hex pubkey or npub." };
 
   const relays = params.relays?.length ? params.relays : DEFAULT_RELAYS;
-  const evt = await getLatestEventForAuthor({
+  const latest = await getLatestEventForAuthor({
     relays,
     kind: KINDS.RELAY_LIST,
     authorHex,
     authPrivateKey: params.authPrivateKey,
   });
+  if (!latest.success) {
+    return { success: false, message: latest.message ?? "Failed to query relay list." };
+  }
+  const evt = latest.event;
 
   if (!evt) {
     return { success: true, message: "No relay list (kind 10002) found.", relays: [] };
@@ -146,10 +150,18 @@ export async function setRelayList(params: {
   }
   const tags = Array.from(tagMap.values()).flat();
 
-  const existing = await getLatestEventForAuthor({ relays: publishRelays, kind: KINDS.RELAY_LIST, authorHex });
-  const base = createEvent({ kind: KINDS.RELAY_LIST, content: existing?.content ?? "", tags }, authorHex) as any;
-  if (existing?.created_at && typeof base.created_at === "number" && base.created_at <= existing.created_at) {
-    base.created_at = existing.created_at + 1;
+  const existing = await getLatestEventForAuthor({
+    relays: publishRelays,
+    kind: KINDS.RELAY_LIST,
+    authorHex,
+    authPrivateKey: params.privateKey,
+  });
+  if (!existing.success) {
+    return { success: false, message: existing.message ?? "Failed to query existing relay list." };
+  }
+  const base = createEvent({ kind: KINDS.RELAY_LIST, content: existing.event?.content ?? "", tags }, authorHex) as any;
+  if (existing.event?.created_at && typeof base.created_at === "number" && base.created_at <= existing.event.created_at) {
+    base.created_at = existing.event.created_at + 1;
   }
 
   const unsigned: Omit<NostrEvent, "id" | "sig"> = { ...base, pubkey: authorHex };

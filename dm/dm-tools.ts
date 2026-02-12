@@ -76,6 +76,7 @@ export const sendDmNip04ToolConfig = {
   recipientPubkey: z.string().describe("Recipient public key (hex or npub)"),
   content: z.string().describe("Plaintext message content"),
   relays: z.array(z.string()).optional().describe("Optional list of relays to publish to"),
+  authPrivateKey: z.string().optional().describe("Optional private key (hex or nsec) used to AUTH (NIP-42) if relays require it"),
   createdAt: z.number().int().nonnegative().optional().describe("Optional created_at timestamp (unix seconds)"),
 };
 
@@ -84,6 +85,7 @@ export async function sendDmNip04(params: {
   recipientPubkey: string;
   content: string;
   relays?: string[];
+  authPrivateKey?: string;
   createdAt?: number;
 }): Promise<{ success: boolean; message: string; eventId?: string }> {
   try {
@@ -107,7 +109,7 @@ export async function sendDmNip04(params: {
     const signedRes = await signNostrEvent({ privateKey: params.privateKey, event: unsigned });
     if (!signedRes.success || !signedRes.signedEvent) return { success: false, message: signedRes.message };
 
-    const pubRes = await publishNostrEvent({ signedEvent: signedRes.signedEvent, relays });
+    const pubRes = await publishNostrEvent({ signedEvent: signedRes.signedEvent, relays, authPrivateKey: params.authPrivateKey });
     if (!pubRes.success) return { success: false, message: pubRes.message };
 
     return { success: true, message: pubRes.message, eventId: signedRes.signedEvent.id };
@@ -120,6 +122,7 @@ export const getDmConversationNip04ToolConfig = {
   privateKey: z.string().describe("Your private key (hex or nsec) for decrypting the conversation"),
   peerPubkey: z.string().describe("Peer public key (hex or npub)"),
   relays: z.array(z.string()).optional().describe("Optional list of relays to query"),
+  authPrivateKey: z.string().optional().describe("Optional private key (hex or nsec) used to AUTH (NIP-42) if relays require it"),
   since: z.number().int().nonnegative().optional().describe("Optional start timestamp (unix seconds)"),
   until: z.number().int().nonnegative().optional().describe("Optional end timestamp (unix seconds)"),
   limit: z.number().int().min(1).max(200).default(50).describe("Maximum number of messages to return"),
@@ -130,6 +133,7 @@ export async function getDmConversationNip04(params: {
   privateKey: string;
   peerPubkey: string;
   relays?: string[];
+  authPrivateKey?: string;
   since?: number;
   until?: number;
   limit?: number;
@@ -146,8 +150,14 @@ export async function getDmConversationNip04(params: {
   }[];
 }> {
   const relays = params.relays?.length ? params.relays : DEFAULT_RELAYS;
-  const privHex = normalizePrivateKey(params.privateKey);
-  const meHex = pubkeyFromPrivateKey(privHex);
+  let privHex: string;
+  let meHex: string;
+  try {
+    privHex = normalizePrivateKey(params.privateKey);
+    meHex = pubkeyFromPrivateKey(privHex);
+  } catch {
+    return { success: false, message: "Invalid private key format." };
+  }
   const peerHex = npubToHex(params.peerPubkey);
   if (!peerHex) return { success: false, message: "Invalid peer pubkey format. Provide hex or npub." };
 
@@ -155,6 +165,7 @@ export async function getDmConversationNip04(params: {
   // We need two queries because Nostr filters can't express (A->B OR B->A) in one filter.
   const sent = await queryEvents({
     relays,
+    authPrivateKey: params.authPrivateKey,
     kinds: [KINDS.DIRECT_MESSAGE],
     authors: [meHex],
     tags: { p: [peerHex] },
@@ -165,6 +176,7 @@ export async function getDmConversationNip04(params: {
 
   const received = await queryEvents({
     relays,
+    authPrivateKey: params.authPrivateKey,
     kinds: [KINDS.DIRECT_MESSAGE],
     authors: [peerHex],
     tags: { p: [meHex] },
@@ -255,6 +267,7 @@ export const sendDmNip44ToolConfig = {
   recipientPubkey: z.string().describe("Recipient public key (hex or npub)"),
   content: z.string().describe("Plaintext message content"),
   relays: z.array(z.string()).optional().describe("Optional list of relays to publish to"),
+  authPrivateKey: z.string().optional().describe("Optional private key (hex or nsec) used to AUTH (NIP-42) if relays require it"),
 };
 
 export async function sendDmNip44(params: {
@@ -262,6 +275,7 @@ export async function sendDmNip44(params: {
   recipientPubkey: string;
   content: string;
   relays?: string[];
+  authPrivateKey?: string;
 }): Promise<{ success: boolean; message: string; eventId?: string }> {
   try {
     const relays = params.relays?.length ? params.relays : DEFAULT_RELAYS;
@@ -270,7 +284,7 @@ export async function sendDmNip44(params: {
     if (!recipientHex) return { success: false, message: "Invalid recipient pubkey format. Provide hex or npub." };
 
     const giftWrap = await createDirectMessage(params.content ?? "", privHex, recipientHex);
-    const pubRes = await publishNostrEvent({ signedEvent: giftWrap as any, relays });
+    const pubRes = await publishNostrEvent({ signedEvent: giftWrap as any, relays, authPrivateKey: params.authPrivateKey });
     if (!pubRes.success) return { success: false, message: pubRes.message };
     return { success: true, message: pubRes.message, eventId: giftWrap.id };
   } catch (e: any) {
@@ -309,6 +323,7 @@ export async function decryptDmNip44(params: {
 export const getDmInboxNip44ToolConfig = {
   privateKey: z.string().describe("Your private key (hex or nsec) to decrypt your inbox"),
   relays: z.array(z.string()).optional().describe("Optional list of relays to query"),
+  authPrivateKey: z.string().optional().describe("Optional private key (hex or nsec) used to AUTH (NIP-42) if relays require it"),
   since: z.number().int().nonnegative().optional().describe("Optional start timestamp (unix seconds)"),
   until: z.number().int().nonnegative().optional().describe("Optional end timestamp (unix seconds)"),
   limit: z.number().int().min(1).max(200).default(25).describe("Maximum number of gift wrap events to fetch/decrypt"),
@@ -317,6 +332,7 @@ export const getDmInboxNip44ToolConfig = {
 export async function getDmInboxNip44(params: {
   privateKey: string;
   relays?: string[];
+  authPrivateKey?: string;
   since?: number;
   until?: number;
   limit?: number;
@@ -332,12 +348,19 @@ export async function getDmInboxNip44(params: {
   }[];
 }> {
   const relays = params.relays?.length ? params.relays : DEFAULT_RELAYS;
-  const privHex = normalizePrivateKey(params.privateKey);
-  const meHex = pubkeyFromPrivateKey(privHex);
+  let privHex: string;
+  let meHex: string;
+  try {
+    privHex = normalizePrivateKey(params.privateKey);
+    meHex = pubkeyFromPrivateKey(privHex);
+  } catch {
+    return { success: false, message: "Invalid private key format." };
+  }
   const limit = params.limit ?? 25;
 
   const res = await queryEvents({
     relays,
+    authPrivateKey: params.authPrivateKey,
     kinds: [GIFT_WRAP_KIND],
     tags: { p: [meHex] },
     since: params.since,
@@ -365,4 +388,3 @@ export async function getDmInboxNip44(params: {
 
   return { success: true, message: `Found ${messages.length} NIP-44 gift wrapped DMs.`, messages };
 }
-

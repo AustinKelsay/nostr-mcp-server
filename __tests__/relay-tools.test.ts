@@ -7,6 +7,8 @@ import { setRelayList, getRelayList } from "../relay/relay-tools.js";
 describe("relay-tools", () => {
   let relay: NostrRelay;
   let relayUrl: string;
+  let authRelay: NostrRelay;
+  let authRelayUrl: string;
 
   // Fixed test key (32 bytes hex). Not used outside this test context.
   const privateKey = "0000000000000000000000000000000000000000000000000000000000000001";
@@ -16,10 +18,14 @@ describe("relay-tools", () => {
     relay = new NostrRelay(0);
     await relay.start();
     relayUrl = relay.url;
+    authRelay = new NostrRelay(0, undefined, true);
+    await authRelay.start();
+    authRelayUrl = authRelay.url;
   });
 
   afterAll(async () => {
     await relay.close();
+    await authRelay.close();
   });
 
   test("setRelayList publishes kind 10002 and getRelayList parses it", async () => {
@@ -48,5 +54,28 @@ describe("relay-tools", () => {
     expect(urls).toContain("wss://read.example.com");
     expect(urls).toContain("wss://write.example.com");
   });
-});
 
+  test("getRelayList returns a query failure when auth is required but not provided", async () => {
+    const res = await getRelayList({ pubkey, relays: [authRelayUrl] });
+    expect(res.success).toBe(false);
+    expect(res.message).toContain("auth_required");
+  });
+
+  test("setRelayList/getRelayList work on auth-required relays when auth is provided", async () => {
+    const setRes = await setRelayList({
+      privateKey,
+      relays: [authRelayUrl],
+      relayList: [{ url: "wss://auth-only.example.com", read: true, write: true }],
+    });
+    expect(setRes.success).toBe(true);
+
+    const got = await getRelayList({
+      pubkey,
+      relays: [authRelayUrl],
+      authPrivateKey: privateKey,
+    });
+    expect(got.success).toBe(true);
+    const urls = (got.relays ?? []).map((r: any) => r.url);
+    expect(urls).toContain("wss://auth-only.example.com");
+  });
+});
