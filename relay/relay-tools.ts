@@ -2,7 +2,8 @@ import { z } from "zod";
 import { schnorr } from "@noble/curves/secp256k1";
 import { createEvent } from "snstr";
 
-import { DEFAULT_RELAYS, KINDS, NostrEvent, formatRelayList, normalizePrivateKey, npubToHex } from "../utils/index.js";
+import { DEFAULT_RELAYS, KINDS } from "../utils/constants.js";
+import { NostrEvent, formatRelayList, normalizePrivateKey, npubToHex } from "../utils/index.js";
 import { publishNostrEvent, queryEvents, signNostrEvent } from "../event/event-tools.js";
 
 function pubkeyFromPrivateKey(privateKeyHex: string): string {

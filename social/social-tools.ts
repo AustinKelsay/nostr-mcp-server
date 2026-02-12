@@ -10,15 +10,14 @@ import {
 } from "snstr";
 
 import {
-  DEFAULT_RELAYS,
   NostrEvent,
   NostrFilter,
-  KINDS,
   formatContacts,
   formatPubkey,
   normalizePrivateKey,
   npubToHex,
 } from "../utils/index.js";
+import { DEFAULT_RELAYS, KINDS } from "../utils/constants.js";
 
 import { queryEvents, publishNostrEvent, signNostrEvent } from "../event/event-tools.js";
 

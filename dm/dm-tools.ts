@@ -11,7 +11,8 @@ import {
   GIFT_WRAP_KIND,
 } from "snstr";
 
-import { DEFAULT_RELAYS, KINDS, NostrEvent, normalizePrivateKey, npubToHex } from "../utils/index.js";
+import { DEFAULT_RELAYS, KINDS } from "../utils/constants.js";
+import { NostrEvent, normalizePrivateKey, npubToHex } from "../utils/index.js";
 import { publishNostrEvent, queryEvents, signNostrEvent } from "../event/event-tools.js";
 
 function pubkeyFromPrivateKey(privateKeyHex: string): string {
