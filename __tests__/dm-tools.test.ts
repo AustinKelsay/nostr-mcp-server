@@ -1,6 +1,7 @@
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { schnorr } from "@noble/curves/secp256k1";
 import { NostrRelay } from "../utils/ephemeral-relay.js";
+import { QUERY_TIMEOUT } from "../utils/constants.js";
 
 import {
   encryptNip04,
@@ -79,7 +80,7 @@ describe("dm-tools", () => {
     expect(b1.success).toBe(true);
 
     // Poll until both are queryable (relay OK may arrive before store).
-    const deadline = Date.now() + 2000;
+    const deadline = Date.now() + QUERY_TIMEOUT;
     let convo: any = null;
     while (Date.now() < deadline) {
       convo = await getDmConversationNip04({
@@ -104,7 +105,7 @@ describe("dm-tools", () => {
     const sent = await sendDmNip44({ privateKey: alicePriv, recipientPubkey: bobPub, content: msg, relays: [relayUrl] });
     expect(sent.success).toBe(true);
 
-    const deadline = Date.now() + 2000;
+    const deadline = Date.now() + QUERY_TIMEOUT;
     let inbox: any = null;
     while (Date.now() < deadline) {
       inbox = await getDmInboxNip44({ privateKey: bobPriv, relays: [relayUrl], limit: 25 });
@@ -145,7 +146,7 @@ describe("dm-tools", () => {
     });
     expect(noAuth04Query.success).toBe(false);
 
-    const deadline04 = Date.now() + 2000;
+    const deadline04 = Date.now() + QUERY_TIMEOUT;
     let convo04: any = null;
     while (Date.now() < deadline04) {
       convo04 = await getDmConversationNip04({
@@ -187,7 +188,7 @@ describe("dm-tools", () => {
     });
     expect(noAuth44Query.success).toBe(false);
 
-    const deadline44 = Date.now() + 2000;
+    const deadline44 = Date.now() + QUERY_TIMEOUT;
     let inbox44: any = null;
     while (Date.now() < deadline44) {
       inbox44 = await getDmInboxNip44({

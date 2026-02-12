@@ -1,6 +1,7 @@
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { schnorr } from "@noble/curves/secp256k1";
 import { NostrRelay } from "../utils/ephemeral-relay.js";
+import { KINDS, QUERY_TIMEOUT } from "../utils/constants.js";
 
 import { setRelayList, getRelayList } from "../relay/relay-tools.js";
 
@@ -40,7 +41,7 @@ describe("relay-tools", () => {
     });
     expect(setRes.success).toBe(true);
 
-    const deadline = Date.now() + 2000;
+    const deadline = Date.now() + QUERY_TIMEOUT;
     let got: any = null;
     while (Date.now() < deadline) {
       got = await getRelayList({ pubkey, relays: [relayUrl] });
@@ -53,6 +54,7 @@ describe("relay-tools", () => {
     expect(urls).toContain("wss://relay.example.com");
     expect(urls).toContain("wss://read.example.com");
     expect(urls).toContain("wss://write.example.com");
+    expect(got.event?.kind).toBe(KINDS.RELAY_LIST);
   });
 
   test("getRelayList returns a query failure when auth is required but not provided", async () => {
