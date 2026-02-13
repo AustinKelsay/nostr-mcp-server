@@ -1,6 +1,6 @@
 {
   "name": "nostr-mcp-server",
-  "version": "2.1.0",
+  "version": "3.0.0",
   "description": "A Model Context Protocol (MCP) server that provides Nostr capabilities to LLMs like Claude",
   "main": "build/index.js",
   "type": "module",
@@ -43,7 +43,7 @@
     "@noble/hashes": "^1.7.2",
     "@scure/base": "^1.2.4",
     "light-bolt11-decoder": "^3.2.0",
-    "snstr": "^0.1.0",
+    "snstr": "^0.3.1",
     "ws": "^8.16.1",
     "zod": "^3.24.2"
   },

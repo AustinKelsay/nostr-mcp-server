@@ -5,12 +5,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [3.0.0] - 2026-02-13
+
+### Added
+- Added generic event tooling (`queryEvents`, `createNostrEvent`, `signNostrEvent`, `publishNostrEvent`)
+- Added social tooling for follow/unfollow, reactions, reposts, deletions, and threaded replies
+- Added relay list tooling for NIP-65 (`getRelayList`, `setRelayList`) with optional NIP-42 relay authentication
+- Added direct message tooling for NIP-04 and NIP-44/NIP-17 workflows, including encrypt/decrypt, send, inbox, and conversation retrieval
+- Added `since`/`until` pagination support for event queries
+- Added dedicated test suites for event tools, social tools, relay tools, DM tools, and NIP-42 auth flows
+
+### Changed
+- Updated `snstr` dependency to `v0.3.1`
+- Unified private-key normalization and signing helpers across note/event/social/relay/DM flows
+- Centralized shared constants and query timeout usage in DM/relay/social tools and related tests
+
+### Fixed
+- Improved deterministic latest-event selection and shared contact/relay list formatting
+- Fixed relay and DM auth error handling; DM handlers now correctly forward `authPrivateKey`
+- Hardened relay auth key handling in NIP-42 flows
+
+### Removed
+- Removed an accidentally tracked local Claude Desktop config file from the repository history
+
 ## [2.1.0] - 2026-01-08
+
+### Added
+- Added `.npmignore` to control published npm package contents
 
 ### Changed
 - Migrated test runner from Jest to Bun's native test runner for faster test execution
 - Simplified build scripts using native shell commands
 - Updated release scripts to use Bun (`bun test && bun run build`)
+- Updated GitHub release workflow to align with Bun-based release CI
+- Updated npm package metadata/docs, including npm badge updates in README
+- Published the package updates to npm
 
 ### Removed
 - NIPs search functionality (`searchNips` tool) - simplifies the server by removing external GitHub API dependencies

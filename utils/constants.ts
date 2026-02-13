@@ -23,8 +23,29 @@ export const FALLBACK_RELAYS = [
 
 // Define event kinds
 export const KINDS = {
+  // NIP-01 / common kinds
+  METADATA: 0,
+  TEXT: 1,
+  CONTACT_LIST: 3,
+  DIRECT_MESSAGE: 4,
+  DELETE: 5,
+  REPOST: 6,
+  REACTION: 7,
+  RELAY_LIST: 10002, // NIP-65
+  AUTH: 22242, // NIP-42
+  ZAP_REQUEST: 9734,
+  ZAP_RECEIPT: 9735,
+
+  // Back-compat aliases (older naming used in parts of this repo)
   Metadata: 0,
   Text: 1,
+  ContactList: 3,
+  DirectMessage: 4,
+  Delete: 5,
+  Repost: 6,
+  Reaction: 7,
+  RelayList: 10002,
+  Auth: 22242,
   ZapRequest: 9734,
-  ZapReceipt: 9735
-}; 
+  ZapReceipt: 9735,
+};

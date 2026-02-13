@@ -46,7 +46,6 @@ function createSignedEvent(privateKey: string, kind: number, content: string, ta
 
 describe('WebSocket Nostr Integration Tests', () => {
   let relay: NostrRelay;
-  const testPort = 9800;
   let relayUrl: string;
   let ws: WebSocket;
   let privateKey: string;
@@ -57,9 +56,10 @@ describe('WebSocket Nostr Integration Tests', () => {
     publicKey = getPublicKey(privateKey);
     
     // Start the ephemeral relay
-    relay = new NostrRelay(testPort);
+    // Use port 0 so the OS chooses an available ephemeral port (avoids CI/local port conflicts).
+    relay = new NostrRelay(0);
     await relay.start();
-    relayUrl = `ws://localhost:${testPort}`;
+    relayUrl = relay.url;
   });
   
   beforeEach(async () => {

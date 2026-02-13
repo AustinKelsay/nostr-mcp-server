@@ -3,6 +3,7 @@ import { schnorr } from '@noble/curves/secp256k1'
 import { sha256 } from '@noble/hashes/sha256'
 import EventEmitter from 'events'
 import { WebSocket, WebSocketServer } from 'ws'
+import { KINDS } from './constants.js'
 
 /* ================ [ Configuration ] ================ */
 
@@ -78,9 +79,10 @@ const sub_schema = z.tuple([str]).rest(filter_schema)
 
 export class NostrRelay {
   private readonly _emitter: EventEmitter
-  private readonly _port: number
+  private _port: number
   private readonly _purge: number | null
   private readonly _subs: Map<string, Subscription>
+  private readonly _requireAuth: boolean
 
   private _wss: WebSocketServer | null
   private _cache: SignedEvent[]
@@ -88,7 +90,7 @@ export class NostrRelay {
 
   public conn: number
 
-  constructor(port: number, purge_ival?: number) {
+  constructor(port: number, purge_ival?: number, requireAuth?: boolean) {
     this._cache = []
     this._emitter = new EventEmitter()
     this._port = port
@@ -96,6 +98,7 @@ export class NostrRelay {
     this._subs = new Map()
     this._wss = null
     this.conn = 0
+    this._requireAuth = requireAuth ?? false
   }
 
   get cache() {
@@ -104,6 +107,14 @@ export class NostrRelay {
 
   get subs() {
     return this._subs
+  }
+
+  get port() {
+    return this._port
+  }
+
+  get requireAuth() {
+    return this._requireAuth
   }
 
   get url() {
@@ -118,33 +129,75 @@ export class NostrRelay {
   }
 
   async start() {
-    this._wss = new WebSocketServer({ port: this._port })
     this._isClosing = false
 
-    DEBUG && console.log('[ relay ] running on port:', this._port)
+    // Bun's http server (used by ws) does not reliably support binding to port 0.
+    // If callers pass 0, we pick a random high port and retry on EADDRINUSE.
+    const randomHighPort = () => {
+      // IANA ephemeral range, avoids privileged ports and typical local dev defaults.
+      const min = 49152
+      const max = 65535
+      return Math.floor(min + Math.random() * (max - min + 1))
+    }
 
-    this.wss.on('connection', socket => {
-      const instance = new ClientSession(this, socket)
+    const maxAttempts = this._port === 0 ? 25 : 1
 
-      socket.on('message', msg => instance._handler(msg.toString()))
-      socket.on('error', err => instance._onerr(err))
-      socket.on('close', code => instance._cleanup(code))
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const port = this._port === 0 ? randomHighPort() : this._port
 
-      this.conn += 1
-    })
+      // Create a fresh server each attempt.
+      this._wss = new WebSocketServer({ port })
 
-    return new Promise(res => {
-      this.wss.on('listening', () => {
+      DEBUG && console.log('[ relay ] running on port:', port)
+
+      this.wss.on('connection', socket => {
+        const instance = new ClientSession(this, socket)
+
+        socket.on('message', msg => instance._handler(msg.toString()))
+        socket.on('error', err => instance._onerr(err))
+        socket.on('close', code => instance._cleanup(code))
+
+        this.conn += 1
+      })
+
+      try {
+        await new Promise<void>((resolve, reject) => {
+          this.wss.once('error', reject)
+          this.wss.once('listening', () => resolve())
+        })
+
+        this._port = port
+
         if (this._purge !== null) {
           DEBUG && console.log(`[ relay ] purging events every ${this._purge} seconds`)
           setInterval(() => {
             this._cache = []
           }, this._purge * 1000)
         }
+
         this._emitter.emit('connected')
-        res(this)
-      })
-    })
+        return this
+      } catch (err: any) {
+        const isAddrInUse = err?.code === 'EADDRINUSE'
+
+        // Best-effort cleanup before retrying.
+        try {
+          this._wss?.close()
+        } catch {
+          // ignore
+        } finally {
+          this._wss = null
+        }
+
+        if (this._port === 0 && isAddrInUse) {
+          continue
+        }
+
+        throw err
+      }
+    }
+
+    throw new Error('Failed to start relay after multiple attempts to reserve a port')
   }
 
   onconnect(cb: () => void) {
@@ -210,6 +263,8 @@ class ClientSession {
   private readonly _relay: NostrRelay
   private readonly _socket: WebSocket
   private readonly _subs: Set<string>
+  private _authed: boolean
+  private _authChallenge: string
 
   constructor(
     relay: NostrRelay,
@@ -219,6 +274,8 @@ class ClientSession {
     this._sid = Math.random().toString().slice(2, 8)
     this._socket = socket
     this._subs = new Set()
+    this._authed = !relay.requireAuth
+    this._authChallenge = `challenge-${Math.random().toString(16).slice(2)}`
 
     this.log.client('client connected')
   }
@@ -265,7 +322,7 @@ class ClientSession {
       // Handle NIP-46 messages (which might not follow standard Nostr format)
       if (parsed && Array.isArray(parsed) && parsed.length > 0) {
         // Check if it's a standard Nostr message
-        if (['EVENT', 'REQ', 'CLOSE'].includes(parsed[0])) {
+        if (['EVENT', 'REQ', 'CLOSE', 'AUTH'].includes(parsed[0])) {
           // Handle standard Nostr messages
           [verb, ...payload] = parsed;
           
@@ -292,6 +349,13 @@ class ClientSession {
                 return this.send(['NOTICE', 'invalid: CLOSE message missing params'])
               }
               return this._onclose(parsed[1]);
+
+            case 'AUTH':
+              if (parsed.length !== 2) {
+                DEBUG && console.log(`[ ${this._sid} ]`, 'AUTH message missing params:', parsed)
+                return this.send(['NOTICE', 'invalid: AUTH message missing params'])
+              }
+              return this._onauth(parsed[1]);
           }
         }
         else {
@@ -329,6 +393,11 @@ class ClientSession {
 
   _onevent(event: SignedEvent) {
     try {
+      if (this.relay.requireAuth && !this._authed) {
+        this.send(['AUTH', this._authChallenge])
+        return
+      }
+
       // Special handling for NIP-46 events (kind 24133)
       if (event.kind === 24133) {
         this.relay.store(event);
@@ -392,6 +461,11 @@ class ClientSession {
     sub_id: string,
     filters: EventFilter[]
   ): void {
+    if (this.relay.requireAuth && !this._authed) {
+      this.send(['AUTH', this._authChallenge])
+      return
+    }
+
     if (filters.length === 0) {
       this.log.client('request has no filters')
       return
@@ -433,6 +507,32 @@ class ClientSession {
     
     // Send EOSE
     this.send(['EOSE', sub_id])
+  }
+
+  _onauth(event: SignedEvent) {
+    try {
+      // NIP-42 AUTH: kind 22242 with "challenge" tag matching relay-provided challenge.
+      if (event.kind !== KINDS.AUTH) {
+        this.send(['OK', event.id, false, 'invalid: wrong auth kind'])
+        return
+      }
+
+      if (!verify_event(event)) {
+        this.send(['OK', event.id, false, 'invalid: auth failed validation'])
+        return
+      }
+
+      const challengeTag = event.tags.find(t => Array.isArray(t) && t[0] === 'challenge' && t.length > 1)
+      if (!challengeTag || challengeTag[1] !== this._authChallenge) {
+        this.send(['OK', event.id, false, 'invalid: auth challenge mismatch'])
+        return
+      }
+
+      this._authed = true
+      this.send(['OK', event.id, true, ''])
+    } catch (e) {
+      DEBUG && console.error(`[ client ][ ${this._sid} ]`, 'error handling AUTH:', e)
+    }
   }
 
   get log() {

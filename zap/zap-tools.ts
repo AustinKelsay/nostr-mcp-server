@@ -517,6 +517,8 @@ export function formatZapReceipt(zap: NostrEvent, pubkeyContext?: string): strin
 export const getReceivedZapsToolConfig = {
   pubkey: z.string().describe("Public key of the Nostr user (hex format or npub format)"),
   limit: z.number().min(1).max(100).default(10).describe("Maximum number of zaps to fetch"),
+  since: z.number().int().nonnegative().optional().describe("Optional start timestamp (unix seconds)"),
+  until: z.number().int().nonnegative().optional().describe("Optional end timestamp (unix seconds)"),
   relays: z.array(z.string()).optional().describe("Optional list of relays to query"),
   validateReceipts: z.boolean().default(true).describe("Whether to validate zap receipts according to NIP-57"),
   debug: z.boolean().default(false).describe("Enable verbose debug logging"),
@@ -525,6 +527,8 @@ export const getReceivedZapsToolConfig = {
 export const getSentZapsToolConfig = {
   pubkey: z.string().describe("Public key of the Nostr user (hex format or npub format)"),
   limit: z.number().min(1).max(100).default(10).describe("Maximum number of zaps to fetch"),
+  since: z.number().int().nonnegative().optional().describe("Optional start timestamp (unix seconds)"),
+  until: z.number().int().nonnegative().optional().describe("Optional end timestamp (unix seconds)"),
   relays: z.array(z.string()).optional().describe("Optional list of relays to query"),
   validateReceipts: z.boolean().default(true).describe("Whether to validate zap receipts according to NIP-57"),
   debug: z.boolean().default(false).describe("Enable verbose debug logging"),
@@ -533,6 +537,8 @@ export const getSentZapsToolConfig = {
 export const getAllZapsToolConfig = {
   pubkey: z.string().describe("Public key of the Nostr user (hex format or npub format)"),
   limit: z.number().min(1).max(100).default(20).describe("Maximum number of total zaps to fetch"),
+  since: z.number().int().nonnegative().optional().describe("Optional start timestamp (unix seconds)"),
+  until: z.number().int().nonnegative().optional().describe("Optional end timestamp (unix seconds)"),
   relays: z.array(z.string()).optional().describe("Optional list of relays to query"),
   validateReceipts: z.boolean().default(true).describe("Whether to validate zap receipts according to NIP-57"),
   debug: z.boolean().default(false).describe("Enable verbose debug logging"),

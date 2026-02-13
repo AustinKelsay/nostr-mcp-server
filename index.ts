@@ -11,7 +11,9 @@ import {
   QUERY_TIMEOUT,
   getFreshPool,
   npubToHex,
-  formatPubkey
+  formatPubkey,
+  formatContacts,
+  formatRelayList
 } from "./utils/index.js";
 import {
   ZapReceipt,
@@ -56,6 +58,61 @@ import {
   analyzeNip19ToolConfig,
   formatAnalysisResult
 } from "./utils/nip19-tools.js";
+import {
+  queryEventsToolConfig,
+  queryEvents,
+  formatEventsList,
+  createNostrEventToolConfig,
+  createNostrEvent,
+  signNostrEventToolConfig,
+  signNostrEvent,
+  publishNostrEventToolConfig,
+  publishNostrEvent
+} from "./event/event-tools.js";
+import {
+  getRelayListToolConfig,
+  getRelayList,
+  setRelayListToolConfig,
+  setRelayList
+} from "./relay/relay-tools.js";
+import {
+  getContactListToolConfig,
+  getContactList,
+  getFollowingToolConfig,
+  getFollowing,
+  followToolConfig,
+  follow,
+  unfollowToolConfig,
+  unfollow,
+  reactToEventToolConfig,
+  reactToEvent,
+  repostEventToolConfig,
+  repostEvent,
+  deleteEventToolConfig,
+  deleteEvent,
+  replyToEventToolConfig,
+  replyToEvent
+} from "./social/social-tools.js";
+import {
+  encryptNip04ToolConfig,
+  encryptNip04,
+  decryptNip04ToolConfig,
+  decryptNip04,
+  sendDmNip04ToolConfig,
+  sendDmNip04,
+  getDmConversationNip04ToolConfig,
+  getDmConversationNip04,
+  encryptNip44ToolConfig,
+  encryptNip44,
+  decryptNip44ToolConfig,
+  decryptNip44,
+  sendDmNip44ToolConfig,
+  sendDmNip44,
+  decryptDmNip44ToolConfig,
+  decryptDmNip44,
+  getDmInboxNip44ToolConfig,
+  getDmInboxNip44
+} from "./dm/dm-tools.js";
 
 // Set WebSocket implementation for Node.js (Bun has native WebSocket)
 if (typeof globalThis.WebSocket === 'undefined') {
@@ -149,7 +206,7 @@ server.tool(
   "getKind1Notes",
   "Get text notes (kind 1) by public key",
   getKind1NotesToolConfig,
-  async ({ pubkey, limit, relays }, extra) => {
+  async ({ pubkey, limit, since, until, relays }, extra) => {
     // Convert npub to hex if needed
     const hexPubkey = npubToHex(pubkey);
     if (!hexPubkey) {
@@ -180,6 +237,8 @@ server.tool(
           kinds: [KINDS.Text],
           authors: [hexPubkey],
           limit,
+          ...(typeof since === "number" ? { since } : {}),
+          ...(typeof until === "number" ? { until } : {}),
         } as NostrFilter,
         { timeout: QUERY_TIMEOUT }
       );
@@ -195,8 +254,11 @@ server.tool(
         };
       }
       
-      // Sort notes by created_at in descending order (newest first)
-      notes.sort((a, b) => b.created_at - a.created_at);
+      // Deterministic ordering: newest first, then stable tie-break on id.
+      notes.sort((a, b) => {
+        if (b.created_at !== a.created_at) return b.created_at - a.created_at;
+        return String(b.id ?? "").localeCompare(String(a.id ?? ""));
+      });
       
       const formattedNotes = notes.map(formatNote).join("\n");
       
@@ -230,7 +292,7 @@ server.tool(
   "getReceivedZaps",
   "Get zaps received by a public key",
   getReceivedZapsToolConfig,
-  async ({ pubkey, limit, relays, validateReceipts, debug }) => {
+  async ({ pubkey, limit, since, until, relays, validateReceipts, debug }) => {
     // Convert npub to hex if needed
     const hexPubkey = npubToHex(pubkey);
     if (!hexPubkey) {
@@ -261,6 +323,8 @@ server.tool(
           kinds: [KINDS.ZapReceipt],
           "#p": [hexPubkey], // lowercase 'p' for recipient
           limit: Math.ceil(limit * 1.5), // Fetch a bit more to account for potential invalid zaps
+          ...(typeof since === "number" ? { since } : {}),
+          ...(typeof until === "number" ? { until } : {}),
         } as NostrFilter,
         { timeout: QUERY_TIMEOUT }
       );
@@ -333,8 +397,11 @@ server.tool(
         };
       }
       
-      // Sort zaps by created_at in descending order (newest first)
-      processedZaps.sort((a, b) => b.created_at - a.created_at);
+      // Deterministic ordering: newest first, then stable tie-break on id.
+      processedZaps.sort((a, b) => {
+        if (b.created_at !== a.created_at) return b.created_at - a.created_at;
+        return String(b.id ?? "").localeCompare(String(a.id ?? ""));
+      });
       
       // Limit to requested number
       processedZaps = processedZaps.slice(0, limit);
@@ -374,7 +441,7 @@ server.tool(
   "getSentZaps",
   "Get zaps sent by a public key",
   getSentZapsToolConfig,
-  async ({ pubkey, limit, relays, validateReceipts, debug }) => {
+  async ({ pubkey, limit, since, until, relays, validateReceipts, debug }) => {
     // Convert npub to hex if needed
     const hexPubkey = npubToHex(pubkey);
     if (!hexPubkey) {
@@ -409,6 +476,8 @@ server.tool(
             kinds: [KINDS.ZapReceipt],
             "#P": [hexPubkey], // uppercase 'P' for sender
             limit: Math.ceil(limit * 1.5), // Fetch a bit more to account for potential invalid zaps
+            ...(typeof since === "number" ? { since } : {}),
+            ...(typeof until === "number" ? { until } : {}),
           } as NostrFilter,
           { timeout: QUERY_TIMEOUT }
         );
@@ -427,6 +496,8 @@ server.tool(
           {
             kinds: [KINDS.ZapReceipt],
             limit: Math.max(limit * 10, 100), // Get a larger sample
+            ...(typeof since === "number" ? { since } : {}),
+            ...(typeof until === "number" ? { until } : {}),
           } as NostrFilter,
           { timeout: QUERY_TIMEOUT }
         );
@@ -518,8 +589,11 @@ server.tool(
         };
       }
       
-      // Sort zaps by created_at in descending order (newest first)
-      processedZaps.sort((a, b) => b.created_at - a.created_at);
+      // Deterministic ordering: newest first, then stable tie-break on id.
+      processedZaps.sort((a, b) => {
+        if (b.created_at !== a.created_at) return b.created_at - a.created_at;
+        return String(b.id ?? "").localeCompare(String(a.id ?? ""));
+      });
       
       // Limit to requested number
       processedZaps = processedZaps.slice(0, limit);
@@ -565,7 +639,7 @@ server.tool(
   "getAllZaps",
   "Get all zaps (sent and received) for a public key",
   getAllZapsToolConfig,
-  async ({ pubkey, limit, relays, validateReceipts, debug }) => {
+  async ({ pubkey, limit, since, until, relays, validateReceipts, debug }) => {
     // Convert npub to hex if needed
     const hexPubkey = npubToHex(pubkey);
     if (!hexPubkey) {
@@ -600,6 +674,8 @@ server.tool(
           kinds: [KINDS.ZapReceipt],
           "#p": [hexPubkey],
             limit: Math.ceil(limit * 1.5),
+            ...(typeof since === "number" ? { since } : {}),
+            ...(typeof until === "number" ? { until } : {}),
         } as NostrFilter,
         { timeout: QUERY_TIMEOUT }
         ),
@@ -611,6 +687,8 @@ server.tool(
           kinds: [KINDS.ZapReceipt],
           "#P": [hexPubkey],
             limit: Math.ceil(limit * 1.5),
+            ...(typeof since === "number" ? { since } : {}),
+            ...(typeof until === "number" ? { until } : {}),
         } as NostrFilter,
         { timeout: QUERY_TIMEOUT }
         )
@@ -624,6 +702,8 @@ server.tool(
           {
             kinds: [KINDS.ZapReceipt],
               limit: Math.max(limit * 5, 50),
+              ...(typeof since === "number" ? { since } : {}),
+              ...(typeof until === "number" ? { until } : {}),
           } as NostrFilter,
           { timeout: QUERY_TIMEOUT }
           )
@@ -729,8 +809,11 @@ server.tool(
         };
       }
       
-      // Sort zaps by created_at in descending order (newest first)
-      processedZaps.sort((a, b) => b.created_at - a.created_at);
+      // Deterministic ordering: newest first, then stable tie-break on id.
+      processedZaps.sort((a, b) => {
+        if (b.created_at !== a.created_at) return b.created_at - a.created_at;
+        return String(b.id ?? "").localeCompare(String(a.id ?? ""));
+      });
       
       // Calculate statistics: sent, received, and self zaps
       const sentZaps = processedZaps.filter(zap => zap.direction === 'sent');
@@ -788,7 +871,7 @@ server.tool(
   "getLongFormNotes",
   "Get long-form notes (kind 30023) by public key",
   getLongFormNotesToolConfig,
-  async ({ pubkey, limit, relays }, extra) => {
+  async ({ pubkey, limit, since, until, relays }, extra) => {
     // Convert npub to hex if needed
     const hexPubkey = npubToHex(pubkey);
     if (!hexPubkey) {
@@ -819,6 +902,8 @@ server.tool(
           kinds: [30023], // NIP-23 long-form content
           authors: [hexPubkey],
           limit,
+          ...(typeof since === "number" ? { since } : {}),
+          ...(typeof until === "number" ? { until } : {}),
         } as NostrFilter,
         { timeout: QUERY_TIMEOUT }
       );
@@ -834,8 +919,11 @@ server.tool(
         };
       }
       
-      // Sort notes by created_at in descending order (newest first)
-      notes.sort((a, b) => b.created_at - a.created_at);
+      // Deterministic ordering: newest first, then stable tie-break on id.
+      notes.sort((a, b) => {
+        if (b.created_at !== a.created_at) return b.created_at - a.created_at;
+        return String(b.id ?? "").localeCompare(String(a.id ?? ""));
+      });
       
       // Format each note with enhanced metadata
       const formattedNotes = notes.map(note => {
@@ -886,6 +974,284 @@ server.tool(
       await pool.close();
     }
   }
+);
+
+server.tool(
+  "queryEvents",
+  "Query Nostr events using a generic filter (kinds/authors/ids/tags/timestamps)",
+  queryEventsToolConfig,
+  async ({ relays, authPrivateKey, kinds, authors, ids, since, until, limit, tags, search }) => {
+    const result = await queryEvents({ relays, authPrivateKey, kinds, authors, ids, since, until, limit, tags, search });
+
+    if (!result.success) {
+      return {
+        content: [{ type: "text", text: result.message }],
+      };
+    }
+
+    const events = result.events ?? [];
+    if (events.length === 0) {
+      return {
+        content: [{ type: "text", text: "No events found." }],
+      };
+    }
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: `${result.message}\n\n${formatEventsList(events)}`,
+        },
+      ],
+    };
+  },
+);
+
+server.tool(
+  "getContactList",
+  "Get a user's contact list (kind 3) and followed pubkeys",
+  getContactListToolConfig,
+  async ({ pubkey, relays }) => {
+    const res = await getContactList({ pubkey, relays });
+    if (!res.success) return { content: [{ type: "text", text: res.message }] };
+    return {
+      content: [
+        {
+          type: "text",
+          text: `${res.message}\n\n${formatContacts(res.contacts ?? [])}`,
+        },
+      ],
+    };
+  },
+);
+
+server.tool(
+  "getFollowing",
+  "Get pubkeys a user is following (alias of getContactList)",
+  getFollowingToolConfig,
+  async ({ pubkey, relays }) => {
+    const res = await getFollowing({ pubkey, relays });
+    if (!res.success) return { content: [{ type: "text", text: res.message }] };
+    return {
+      content: [
+        {
+          type: "text",
+          text: `${res.message}\n\n${formatContacts(res.contacts ?? [])}`,
+        },
+      ],
+    };
+  },
+);
+
+server.tool(
+  "getRelayList",
+  "Get a user's relay list metadata (NIP-65 kind 10002)",
+  getRelayListToolConfig,
+  async ({ pubkey, relays, authPrivateKey }) => {
+    const res = await getRelayList({ pubkey, relays, authPrivateKey });
+    if (!res.success) return { content: [{ type: "text", text: res.message }] };
+    return {
+      content: [
+        {
+          type: "text",
+          text: `${res.message}\n\n${formatRelayList(res.relays ?? [])}`,
+        },
+      ],
+    };
+  },
+);
+
+server.tool(
+  "setRelayList",
+  "Publish your relay list metadata (NIP-65 kind 10002)",
+  setRelayListToolConfig,
+  async ({ privateKey, relayList, relays }) => {
+    const res = await setRelayList({ privateKey, relayList, relays });
+    return { content: [{ type: "text", text: res.message }] };
+  },
+);
+
+server.tool(
+  "follow",
+  "Follow a pubkey by updating your contact list (kind 3)",
+  followToolConfig,
+  async ({ privateKey, targetPubkey, relayHint, petname, relays }) => {
+    const res = await follow({ privateKey, targetPubkey, relayHint, petname, relays });
+    return { content: [{ type: "text", text: res.message }] };
+  },
+);
+
+server.tool(
+  "unfollow",
+  "Unfollow a pubkey by updating your contact list (kind 3)",
+  unfollowToolConfig,
+  async ({ privateKey, targetPubkey, relays }) => {
+    const res = await unfollow({ privateKey, targetPubkey, relays });
+    return { content: [{ type: "text", text: res.message }] };
+  },
+);
+
+server.tool(
+  "reactToEvent",
+  "React to an event (kind 7)",
+  reactToEventToolConfig,
+  async ({ privateKey, target, reaction, relays }) => {
+    const res = await reactToEvent({ privateKey, target, reaction, relays });
+    return { content: [{ type: "text", text: res.message }] };
+  },
+);
+
+server.tool(
+  "repostEvent",
+  "Repost an event (kind 6)",
+  repostEventToolConfig,
+  async ({ privateKey, target, relays }) => {
+    const res = await repostEvent({ privateKey, target, relays });
+    return { content: [{ type: "text", text: res.message }] };
+  },
+);
+
+server.tool(
+  "deleteEvent",
+  "Delete one or more events (kind 5 deletion request)",
+  deleteEventToolConfig,
+  async ({ privateKey, targets, reason, relays }) => {
+    const res = await deleteEvent({ privateKey, targets, reason, relays });
+    return { content: [{ type: "text", text: res.message }] };
+  },
+);
+
+server.tool(
+  "replyToEvent",
+  "Reply to an event with correct NIP-10 thread tags (kind 1)",
+  replyToEventToolConfig,
+  async ({ privateKey, target, content, tags, relays }) => {
+    const res = await replyToEvent({ privateKey, target, content, tags, relays });
+    return { content: [{ type: "text", text: res.message }] };
+  },
+);
+
+server.tool(
+  "encryptNip04",
+  "Encrypt plaintext using NIP-04 (AES-CBC) for direct messages",
+  encryptNip04ToolConfig,
+  async ({ privateKey, recipientPubkey, plaintext }) => {
+    const res = await encryptNip04({ privateKey, recipientPubkey, plaintext });
+    if (!res.success) return { content: [{ type: "text", text: res.message }] };
+    return { content: [{ type: "text", text: res.ciphertext ?? "" }] };
+  },
+);
+
+server.tool(
+  "decryptNip04",
+  "Decrypt ciphertext using NIP-04 (AES-CBC) for direct messages",
+  decryptNip04ToolConfig,
+  async ({ privateKey, senderPubkey, ciphertext }) => {
+    const res = await decryptNip04({ privateKey, senderPubkey, ciphertext });
+    if (!res.success) return { content: [{ type: "text", text: res.message }] };
+    return { content: [{ type: "text", text: res.plaintext ?? "" }] };
+  },
+);
+
+server.tool(
+  "sendDmNip04",
+  "Send a NIP-04 encrypted DM (kind 4)",
+  sendDmNip04ToolConfig,
+  async ({ privateKey, recipientPubkey, content, relays, createdAt, authPrivateKey }) => {
+    const res = await sendDmNip04({ privateKey, recipientPubkey, content, relays, createdAt, authPrivateKey });
+    return { content: [{ type: "text", text: res.message }] };
+  },
+);
+
+server.tool(
+  "getDmConversationNip04",
+  "Fetch and optionally decrypt a NIP-04 DM conversation (kind 4) between you and a peer",
+  getDmConversationNip04ToolConfig,
+  async ({ privateKey, peerPubkey, relays, since, until, limit, decrypt, authPrivateKey }) => {
+    const res = await getDmConversationNip04({ privateKey, peerPubkey, relays, since, until, limit, decrypt, authPrivateKey });
+    if (!res.success) return { content: [{ type: "text", text: res.message }] };
+
+    const msgs = res.messages ?? [];
+    const formatted =
+      msgs.length === 0
+        ? "No messages."
+        : msgs
+            .map((m) => {
+              const ts = new Date(m.created_at * 1000).toLocaleString();
+              const who = `${m.direction.toUpperCase()} ${formatPubkey(m.pubkey, true)}`;
+              return `[${ts}] ${who}\n${m.content}\n---`;
+            })
+            .join("\n");
+
+    return { content: [{ type: "text", text: `${res.message}\n\n${formatted}` }] };
+  },
+);
+
+server.tool(
+  "encryptNip44",
+  "Encrypt plaintext using NIP-44 (ChaCha20 + HMAC)",
+  encryptNip44ToolConfig,
+  async ({ privateKey, recipientPubkey, plaintext, version }) => {
+    const res = await encryptNip44({ privateKey, recipientPubkey, plaintext, version });
+    if (!res.success) return { content: [{ type: "text", text: res.message }] };
+    return { content: [{ type: "text", text: res.ciphertext ?? "" }] };
+  },
+);
+
+server.tool(
+  "decryptNip44",
+  "Decrypt ciphertext using NIP-44 (ChaCha20 + HMAC)",
+  decryptNip44ToolConfig,
+  async ({ privateKey, senderPubkey, ciphertext }) => {
+    const res = await decryptNip44({ privateKey, senderPubkey, ciphertext });
+    if (!res.success) return { content: [{ type: "text", text: res.message }] };
+    return { content: [{ type: "text", text: res.plaintext ?? "" }] };
+  },
+);
+
+server.tool(
+  "sendDmNip44",
+  "Send a NIP-44 encrypted DM using NIP-17 gift wrap (kind 1059)",
+  sendDmNip44ToolConfig,
+  async ({ privateKey, recipientPubkey, content, relays, authPrivateKey }) => {
+    const res = await sendDmNip44({ privateKey, recipientPubkey, content, relays, authPrivateKey });
+    return { content: [{ type: "text", text: res.message }] };
+  },
+);
+
+server.tool(
+  "decryptDmNip44",
+  "Decrypt a NIP-17 gift wrapped DM (kind 1059) to reveal the inner kind 14 rumor",
+  decryptDmNip44ToolConfig,
+  async ({ privateKey, giftWrapEvent }) => {
+    const res = await decryptDmNip44({ privateKey, giftWrapEvent: giftWrapEvent as any });
+    if (!res.success) return { content: [{ type: "text", text: res.message }] };
+    return { content: [{ type: "text", text: JSON.stringify(res.rumor ?? {}, null, 2) }] };
+  },
+);
+
+server.tool(
+  "getDmInboxNip44",
+  "Fetch and decrypt your NIP-44 DM inbox (NIP-17 gift wraps, kind 1059)",
+  getDmInboxNip44ToolConfig,
+  async ({ privateKey, authPrivateKey, relays, since, until, limit }) => {
+    const res = await getDmInboxNip44({ privateKey, authPrivateKey, relays, since, until, limit });
+    if (!res.success) return { content: [{ type: "text", text: res.message }] };
+
+    const msgs = res.messages ?? [];
+    const formatted =
+      msgs.length === 0
+        ? "No messages."
+        : msgs
+            .map((m) => {
+              const ts = new Date(m.created_at * 1000).toLocaleString();
+              const from = m.from ? formatPubkey(m.from, true) : "unknown";
+              return `[${ts}] FROM ${from}\n${m.content}\n---`;
+            })
+            .join("\n");
+
+    return { content: [{ type: "text", text: `${res.message}\n\n${formatted}` }] };
+  },
 );
 
 server.tool(
@@ -1504,6 +1870,64 @@ server.tool(
         ],
       };
     }
+  },
+);
+
+// Register generic event creation/signing/publishing tools
+server.tool(
+  "createNostrEvent",
+  "Create an unsigned Nostr event of any kind (requires pubkey or privateKey to derive pubkey)",
+  createNostrEventToolConfig,
+  async ({ kind, content, tags, createdAt, pubkey, privateKey }) => {
+    const result = await createNostrEvent({ kind, content, tags, createdAt, pubkey, privateKey });
+
+    if (!result.success) {
+      return { content: [{ type: "text", text: result.message }] };
+    }
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: `${result.message}\n\nUnsigned Event:\n${JSON.stringify(result.event, null, 2)}`,
+        },
+      ],
+    };
+  },
+);
+
+server.tool(
+  "signNostrEvent",
+  "Sign an unsigned Nostr event with a private key",
+  signNostrEventToolConfig,
+  async ({ privateKey, event }) => {
+    const result = await signNostrEvent({ privateKey, event: event as any });
+
+    if (!result.success) {
+      return { content: [{ type: "text", text: result.message }] };
+    }
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: `${result.message}\n\nSigned Event:\n${JSON.stringify(result.signedEvent, null, 2)}`,
+        },
+      ],
+    };
+  },
+);
+
+server.tool(
+  "publishNostrEvent",
+  "Publish a signed Nostr event to relays",
+  publishNostrEventToolConfig,
+  async ({ signedEvent, relays, authPrivateKey }) => {
+    const result = await publishNostrEvent({ signedEvent: signedEvent as any, relays, authPrivateKey });
+
+    return {
+      content: [{ type: "text", text: result.message }],
+    };
   },
 );
 

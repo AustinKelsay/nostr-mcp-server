@@ -1,133 +1,136 @@
 # Release Process
 
-This document outlines the simple release process for nostr-mcp-server.
+This document outlines the release process for `nostr-mcp-server`.
 
 ## Quick Release Steps
 
 For a new release, follow these steps in order:
 
-### 1. Update Version Number
+### 0. Prep on `staging`
+
+- Pull the latest `staging` branch
+- Confirm a clean working tree
+- Ensure `CHANGELOG.md` has an up-to-date `[Unreleased]` section
+- Ensure docs are updated for any new/removed tools
+
+### 1. Run Pre-release Checks
 
 ```bash
-# For a patch release (bug fixes): 1.0.0 → 1.0.1
-npm version patch
+# Recommended (runs test + build)
+bun run prerelease
 
-# For a minor release (new features): 1.0.0 → 1.1.0
-npm version minor
-
-# For a major release (breaking changes): 1.0.0 → 2.0.0
-npm version major
+# Equivalent manual checks
+bun test
+bun run build
 ```
 
-### 2. Update CHANGELOG.md
+### 2. Update Version Number
 
-1. Move all items from `[Unreleased]` to a new version section
-2. Add the version number and today's date
+Use one of the release scripts:
+
+```bash
+# Patch release (bug fixes): 3.0.0 -> 3.0.1
+bun run release:patch
+
+# Minor release (new features): 3.0.0 -> 3.1.0
+bun run release:minor
+
+# Major release (breaking changes): 3.0.0 -> 4.0.0
+bun run release:major
+```
+
+These scripts run `bun run prerelease` first, then `npm version ...`.
+
+### 3. Finalize `CHANGELOG.md`
+
+1. Move items from `[Unreleased]` into a new version section
+2. Add the release version and date
 3. Add a new empty `[Unreleased]` section at the top
 
 Example:
 ```markdown
 ## [Unreleased]
 
-## [1.1.0] - 2025-01-05
+## [3.1.0] - 2026-03-01
 
 ### Added
 - Feature X
-- Feature Y
-
-### Fixed
-- Bug Z
 ```
-
-### 3. Run Tests
-
-```bash
-npm test
-npm run build
-```
-
-Make sure everything passes!
 
 ### 4. Commit and Tag
 
 ```bash
-# Stage the changes
-git add package.json package-lock.json CHANGELOG.md
+# Stage release files
+git add CHANGELOG.md package.json package-lock.json
 
-# Commit with a clear message
-git commit -m "Release v1.1.0"
+# Commit
+git commit -m "Release v3.1.0"
 
-# Create a tag
-git tag -a v1.1.0 -m "Release v1.1.0"
+# Tag
+git tag -a v3.1.0 -m "Release v3.1.0"
 
-# Push everything
+# Push branch and tag
 git push origin main
-git push origin v1.1.0
+git push origin v3.1.0
 ```
 
 ### 5. Create GitHub Release
 
 1. Go to https://github.com/AustinKelsay/nostr-mcp-server/releases
 2. Click "Draft a new release"
-3. Choose your tag (e.g., `v1.1.0`)
-4. Set release title: `v1.1.0`
-5. Copy the relevant section from CHANGELOG.md into the description
+3. Choose your tag (for example `v3.1.0`)
+4. Set release title to match the tag
+5. Copy the relevant `CHANGELOG.md` section into the release description
 6. Click "Publish release"
 
 ### 6. Publish to npm
-
-Publish your package to npm:
 
 ```bash
 npm publish
 ```
 
-Note: You'll need to be logged in to npm (`npm login`) with an account that has publish permissions.
+Note: You must be logged in to npm with publish permissions.
 
 ## Version Guidelines
 
-- **Patch version (0.0.X)**: Bug fixes, documentation updates, minor tweaks
-- **Minor version (0.X.0)**: New features, new tools, improvements that don't break existing functionality
-- **Major version (X.0.0)**: Breaking changes, major refactors, incompatible API changes
+- **Patch version (`0.0.X`)**: Bug fixes, documentation updates, minor tweaks
+- **Minor version (`0.X.0`)**: New features and improvements without breaking existing usage
+- **Major version (`X.0.0`)**: Breaking changes and incompatible API updates
 
 ## Pre-release Checklist
 
-Before releasing, ensure:
-
-- [ ] All tests pass (`npm test`)
-- [ ] Build succeeds (`npm run build`)
-- [ ] CHANGELOG.md is updated
-- [ ] README.md is accurate (if features were added/removed)
-- [ ] No console.log/console.error statements that could interfere with MCP
+- [ ] `staging` has the expected commits for this release
+- [ ] All tests pass (`bun test`)
+- [ ] Build succeeds (`bun run build`)
+- [ ] `CHANGELOG.md` is updated and grouped by `Added/Changed/Fixed/Removed`
+- [ ] `README.md` is accurate for current tool set
+- [ ] No debug logs interfere with MCP JSON responses
 
 ## Release Notes Template
 
 When creating GitHub release notes, use this format:
 
-```
+```text
 ## What's Changed
 
-### ✨ New Features
-- Feature description (#PR if applicable)
+### New Features
+- Feature description
 
-### 🐛 Bug Fixes
-- Fix description (#PR if applicable)
+### Fixes
+- Fix description
 
-### 📚 Documentation
-- Doc updates
+### Maintenance
+- Internal improvement
 
-### 🔧 Maintenance
-- Internal improvements
-
-**Full Changelog**: https://github.com/AustinKelsay/nostr-mcp-server/compare/v1.0.0...v1.1.0
+**Full Changelog**: https://github.com/AustinKelsay/nostr-mcp-server/compare/v3.0.0...v3.1.0
 ```
 
 ## Troubleshooting
 
-- **Forgot to update CHANGELOG?** Update it and amend your commit: `git commit --amend`
-- **Tagged wrong commit?** Delete and recreate: `git tag -d v1.1.0` then `git tag -a v1.1.0 -m "Release v1.1.0"`
-- **Need to fix after release?** Create a patch version (1.1.0 → 1.1.1)
+- **Forgot to update CHANGELOG?** Update it and amend or add a follow-up commit before publishing
+- **Tagged wrong commit?** Delete and recreate the tag before publishing
+- **Need a post-release fix?** Cut a patch release (for example `3.1.0` -> `3.1.1`)
 
 ---
 
-Remember: Keep it simple! The goal is to ship improvements regularly and reliably.
+Keep releases small, repeatable, and verifiable.

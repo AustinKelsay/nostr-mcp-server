@@ -9,7 +9,7 @@ https://github.com/user-attachments/assets/1d2d47d0-c61b-44e2-85be-5985d2a81c64
 
 ## Features
 
-This server implements 17 tools for interacting with the Nostr network:
+This server implements 40 tools for interacting with the Nostr network:
 
 ### Reading & Querying Tools
 1. `getProfile`: Fetches a user's profile information by public key
@@ -18,25 +18,54 @@ This server implements 17 tools for interacting with the Nostr network:
 4. `getReceivedZaps`: Fetches zaps received by a user, including detailed payment information
 5. `getSentZaps`: Fetches zaps sent by a user, including detailed payment information
 6. `getAllZaps`: Fetches both sent and received zaps for a user, clearly labeled with direction and totals
+7. `queryEvents`: Generic event query tool supporting kinds/authors/ids/tags and timestamps
+8. `getContactList`: Fetches a user's contact list (kind 3) and followed pubkeys
+9. `getFollowing`: Alias of `getContactList`
+10. `getRelayList`: Fetches a user's relay list metadata (NIP-65 kind 10002)
 
 ### Identity & Profile Management Tools
-7. `createKeypair`: Generate new Nostr keypairs in hex and/or npub/nsec format
-8. `createProfile`: Create a new Nostr profile (kind 0 event) with metadata
-9. `updateProfile`: Update an existing Nostr profile with new metadata
+11. `createKeypair`: Generate new Nostr keypairs in hex and/or npub/nsec format
+12. `createProfile`: Create a new Nostr profile (kind 0 event) with metadata
+13. `updateProfile`: Update an existing Nostr profile with new metadata
 
 ### Note Creation & Publishing Tools
-10. `createNote`: Create unsigned kind 1 note events with specified content and tags
-11. `signNote`: Sign note events with a private key, generating cryptographically valid signatures
-12. `publishNote`: Publish signed notes to specified Nostr relays
-13. `postNote`: All-in-one authenticated note posting using an existing private key (nsec/hex)
+14. `createNote`: Create unsigned kind 1 note events with specified content and tags
+15. `signNote`: Sign note events with a private key, generating cryptographically valid signatures
+16. `publishNote`: Publish signed notes to specified Nostr relays
+17. `postNote`: All-in-one authenticated note posting using an existing private key (nsec/hex)
+
+### Generic Event Tools
+18. `createNostrEvent`: Create unsigned Nostr events of any kind (provides low-level building block for NIPs beyond notes/profiles)
+19. `signNostrEvent`: Sign any unsigned Nostr event with a private key
+20. `publishNostrEvent`: Publish any signed Nostr event to relays
+
+### Social Tools
+21. `setRelayList`: Publish your relay list metadata (NIP-65 kind 10002)
+22. `follow`: Follow a pubkey by updating your contact list (kind 3)
+23. `unfollow`: Unfollow a pubkey by updating your contact list (kind 3)
+24. `reactToEvent`: React to an event (kind 7)
+25. `repostEvent`: Repost an event (kind 6)
+26. `deleteEvent`: Delete one or more events (kind 5 deletion request)
+27. `replyToEvent`: Reply to an event with correct NIP-10 thread tags (kind 1)
+
+### Messaging Tools
+28. `encryptNip04`: Encrypt plaintext using NIP-04 (AES-CBC) for direct messages
+29. `decryptNip04`: Decrypt ciphertext using NIP-04 (AES-CBC) for direct messages
+30. `sendDmNip04`: Send a NIP-04 encrypted DM (kind 4)
+31. `getDmConversationNip04`: Fetch and optionally decrypt a NIP-04 DM conversation (kind 4)
+32. `encryptNip44`: Encrypt plaintext using NIP-44 (ChaCha20 + HMAC)
+33. `decryptNip44`: Decrypt ciphertext using NIP-44 (ChaCha20 + HMAC)
+34. `sendDmNip44`: Send a NIP-44 encrypted DM using NIP-17 gift wrap (kind 1059)
+35. `decryptDmNip44`: Decrypt a NIP-17 gift wrapped DM (kind 1059)
+36. `getDmInboxNip44`: Fetch and decrypt your NIP-44 DM inbox (NIP-17 gift wraps, kind 1059)
 
 ### Anonymous Tools
-14. `sendAnonymousZap`: Prepare an anonymous zap to a profile or event, generating a lightning invoice for payment
-15. `postAnonymousNote`: Post an anonymous note using a randomly generated one-time keypair
+37. `sendAnonymousZap`: Prepare an anonymous zap to a profile or event, generating a lightning invoice for payment
+38. `postAnonymousNote`: Post an anonymous note using a randomly generated one-time keypair
 
 ### NIP-19 Entity Tools
-16. `convertNip19`: Convert between different NIP-19 entity formats (hex, npub, nsec, note, nprofile, nevent, naddr)
-17. `analyzeNip19`: Analyze and decode any NIP-19 entity to understand its type and contents
+39. `convertNip19`: Convert between different NIP-19 entity formats (hex, npub, nsec, note, nprofile, nevent, naddr)
+40. `analyzeNip19`: Analyze and decode any NIP-19 entity to understand its type and contents
 
 All tools fully support both hex public keys and npub format, with user-friendly display of Nostr identifiers.
 
@@ -424,16 +453,21 @@ To modify or extend this server:
    - `index.ts`: Main server and tool registration
    - `profile/profile-tools.ts`: Identity management, keypair generation, profile creation ([Documentation](./profile/README.md))
    - `note/note-tools.ts`: Note creation, signing, publishing, and reading functionality ([Documentation](./note/README.md))
+   - `event/event-tools.ts`: Generic event querying/creation/signing/publishing
+   - `social/social-tools.ts`: Follow/unfollow/reaction/repost/delete/reply flows
+   - `relay/relay-tools.ts`: Relay list (NIP-65) read/write and NIP-42 auth support
+   - `dm/dm-tools.ts`: NIP-04 and NIP-44/NIP-17 direct message tooling
    - `zap/zap-tools.ts`: Zap-related functionality ([Documentation](./zap/README.md))
    - `utils/`: Shared utility functions
      - `constants.ts`: Global constants and relay configurations
      - `conversion.ts`: NIP-19 entity conversion utilities (hex/npub/nprofile/nevent/naddr)
      - `formatting.ts`: Output formatting helpers
+     - `keys.ts`: Shared private key normalization and auth key helpers
      - `nip19-tools.ts`: NIP-19 entity conversion and analysis tools
      - `pool.ts`: Nostr connection pool management
      - `ephemeral-relay.ts`: In-memory Nostr relay for testing
 
-2. Run `bun run build` (or `npm run build`) to compile
+2. Run `bun run build` (or `npm run build`) to compile.
 
 3. Restart Claude for Desktop or Cursor to pick up your changes
 
@@ -456,15 +490,20 @@ The test suite includes:
 
 ### Unit Tests
 - `basic.test.ts` - Tests simple profile formatting and zap receipt processing
+- `dm-tools.test.ts` - Tests NIP-04/NIP-44 direct message encryption/decryption and message workflows
+- `event-tools.test.ts` - Tests generic event query/create/sign/publish helpers
 - `profile-notes-simple.test.ts` - Tests profile and note data structures
 - `profile-tools.test.ts` - Tests keypair generation, profile creation, and identity management
 - `note-creation.test.ts` - Tests note creation, signing, and publishing workflows
 - `note-tools-functions.test.ts` - Tests note formatting, creation, signing, and publishing functions
 - `note-tools-unit.test.ts` - Unit tests for note formatting functions
 - `profile-postnote.test.ts` - Tests authenticated note posting with existing private keys
+- `relay-tools.test.ts` - Tests relay list tooling (NIP-65) and authenticated relay interactions
+- `social-tools.test.ts` - Tests follow/unfollow, reactions, reposts, deletes, and replies
 - `zap-tools-simple.test.ts` - Tests zap processing and anonymous zap preparation
 - `zap-tools-tests.test.ts` - Tests zap validation, parsing, and direction determination
 - `nip19-conversion.test.ts` - Tests NIP-19 entity conversion and analysis (28 test cases)
+- `nip42-auth.test.ts` - Tests NIP-42 relay authentication flow and key handling
 
 ### Integration Tests
 - `integration.test.ts` - Tests interaction with an ephemeral Nostr relay including:
@@ -496,6 +535,10 @@ The codebase is organized into modules:
 - Specialized functionality in dedicated directories:
   - [`profile/`](./profile/README.md): Identity management, keypair generation, and profile creation
   - [`note/`](./note/README.md): Note creation, signing, publishing, and reading functionality
+  - `event/`: Generic event query/create/sign/publish functionality
+  - `social/`: Social interactions (follow/unfollow/reactions/reposts/deletes/replies)
+  - `relay/`: Relay list tooling and relay auth support
+  - `dm/`: NIP-04 and NIP-44/NIP-17 direct messaging tools
   - [`zap/`](./zap/README.md): Zap handling and anonymous zapping
 - Common utilities in the `utils/` directory
 
