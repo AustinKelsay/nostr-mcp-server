@@ -453,16 +453,21 @@ To modify or extend this server:
    - `index.ts`: Main server and tool registration
    - `profile/profile-tools.ts`: Identity management, keypair generation, profile creation ([Documentation](./profile/README.md))
    - `note/note-tools.ts`: Note creation, signing, publishing, and reading functionality ([Documentation](./note/README.md))
+   - `event/event-tools.ts`: Generic event querying/creation/signing/publishing
+   - `social/social-tools.ts`: Follow/unfollow/reaction/repost/delete/reply flows
+   - `relay/relay-tools.ts`: Relay list (NIP-65) read/write and NIP-42 auth support
+   - `dm/dm-tools.ts`: NIP-04 and NIP-44/NIP-17 direct message tooling
    - `zap/zap-tools.ts`: Zap-related functionality ([Documentation](./zap/README.md))
    - `utils/`: Shared utility functions
      - `constants.ts`: Global constants and relay configurations
      - `conversion.ts`: NIP-19 entity conversion utilities (hex/npub/nprofile/nevent/naddr)
      - `formatting.ts`: Output formatting helpers
+     - `keys.ts`: Shared private key normalization and auth key helpers
      - `nip19-tools.ts`: NIP-19 entity conversion and analysis tools
      - `pool.ts`: Nostr connection pool management
      - `ephemeral-relay.ts`: In-memory Nostr relay for testing
 
-2. Run `bun run build` (or `npm run build`) to compile
+2. Run `bun run build` (or `npm run build`) to compile.
 
 3. Restart Claude for Desktop or Cursor to pick up your changes
 
@@ -485,15 +490,20 @@ The test suite includes:
 
 ### Unit Tests
 - `basic.test.ts` - Tests simple profile formatting and zap receipt processing
+- `dm-tools.test.ts` - Tests NIP-04/NIP-44 direct message encryption/decryption and message workflows
+- `event-tools.test.ts` - Tests generic event query/create/sign/publish helpers
 - `profile-notes-simple.test.ts` - Tests profile and note data structures
 - `profile-tools.test.ts` - Tests keypair generation, profile creation, and identity management
 - `note-creation.test.ts` - Tests note creation, signing, and publishing workflows
 - `note-tools-functions.test.ts` - Tests note formatting, creation, signing, and publishing functions
 - `note-tools-unit.test.ts` - Unit tests for note formatting functions
 - `profile-postnote.test.ts` - Tests authenticated note posting with existing private keys
+- `relay-tools.test.ts` - Tests relay list tooling (NIP-65) and authenticated relay interactions
+- `social-tools.test.ts` - Tests follow/unfollow, reactions, reposts, deletes, and replies
 - `zap-tools-simple.test.ts` - Tests zap processing and anonymous zap preparation
 - `zap-tools-tests.test.ts` - Tests zap validation, parsing, and direction determination
 - `nip19-conversion.test.ts` - Tests NIP-19 entity conversion and analysis (28 test cases)
+- `nip42-auth.test.ts` - Tests NIP-42 relay authentication flow and key handling
 
 ### Integration Tests
 - `integration.test.ts` - Tests interaction with an ephemeral Nostr relay including:
@@ -525,6 +535,10 @@ The codebase is organized into modules:
 - Specialized functionality in dedicated directories:
   - [`profile/`](./profile/README.md): Identity management, keypair generation, and profile creation
   - [`note/`](./note/README.md): Note creation, signing, publishing, and reading functionality
+  - `event/`: Generic event query/create/sign/publish functionality
+  - `social/`: Social interactions (follow/unfollow/reactions/reposts/deletes/replies)
+  - `relay/`: Relay list tooling and relay auth support
+  - `dm/`: NIP-04 and NIP-44/NIP-17 direct messaging tools
   - [`zap/`](./zap/README.md): Zap handling and anonymous zapping
 - Common utilities in the `utils/` directory
 

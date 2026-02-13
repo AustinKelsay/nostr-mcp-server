@@ -1,6 +1,6 @@
 {
   "name": "nostr-mcp-server",
-  "version": "2.1.0",
+  "version": "3.0.0",
   "description": "A Model Context Protocol (MCP) server that provides Nostr capabilities to LLMs like Claude",
   "main": "build/index.js",
   "type": "module",
