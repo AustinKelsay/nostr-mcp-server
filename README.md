@@ -272,6 +272,24 @@ Once configured, you can ask Claude to use the Nostr tools by making requests li
 - "Publish this signed note to wss://relay.damus.io and wss://nos.lol"
 - "Post a note saying 'GM Nostr! ☀️' using my private key nsec1xyz..."
 
+### Generic Event Operations
+- "Query kind 7 reaction events from this pubkey from the last 24 hours"
+- "Create a kind 7 reaction event to this note ID with content '+'"
+- "Sign this generic Nostr event with my private key and publish it"
+
+### Social & Relay Management
+- "Follow this pubkey using my private key nsec1xyz..."
+- "Unfollow this pubkey using my private key"
+- "Reply to this event ID with 'Great point' using my private key"
+- "Set my relay list to wss://relay.damus.io and wss://nos.lol"
+- "Fetch the relay list for this npub"
+
+### Direct Messaging (NIP-04 / NIP-44)
+- "Encrypt 'hey' with NIP-04 for this recipient pubkey"
+- "Send a NIP-04 DM saying 'hello' to this pubkey using my private key"
+- "Send a NIP-44 DM saying 'check this out' to this pubkey"
+- "Fetch and decrypt my NIP-44 inbox using my private key"
+
 ### Anonymous Operations
 - "Send an anonymous zap of 100 sats to npub1qny3tkh0acurzla8x3zy4nhrjz5zd8ne6dvrjehx9n9hr3lnj08qwuzwc8"
 - "Send 1000 sats to note1abcdef... with a comment saying 'Great post!'"
@@ -394,13 +412,14 @@ For zap queries, you can enable extra validation and debugging:
 ## Limitations
 
 - The server has a default 8-second timeout for queries to prevent hanging
-- Only public keys in hex format or npub format are supported
+- When a tool expects a public key, both hex and npub formats are supported
 - Only a subset of relays is used by default
 
 ## Implementation Details
 
 - Built with **[snstr](https://github.com/austinkelsay/snstr)** - a lightweight, modern TypeScript library for Nostr protocol implementation
 - Native support for npub format using NIP-19 encoding/decoding
+- Relay authentication support for NIP-42 where relays require AUTH events
 - NIP-57 compliant zap receipt detection with direction-awareness (sent/received/self)
 - Advanced bolt11 invoice parsing with payment amount extraction
 - Smart caching system for improved performance with large volumes of zaps
